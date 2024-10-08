@@ -19,10 +19,37 @@ import "leaflet/dist/leaflet.css";
 import "./App.css";
 
 
-
+type travel = {
+  // uuid
+  id: string,
+  name: string,
+  description: string,
+}
 
 function App() {
 
+  const [overmoveDb, setOvermoveDb] = useState<Database | undefined>();
+
+  useEffect(() => {
+    (async() => {
+      const db = await Database.load('sqlite:overmoveTest.db');
+      setOvermoveDb(db);
+    })()
+  }, [])
+
+  const [travelList, setTravelList] = useState<travel[]>([]);
+  const [inputNewTravelName, setInputNewTravelName] = useState("");
+  const [inputNewTravelDescription, setInputNewTravelDescription] = useState("");
+
+  async function createNewTravel() {
+    if (overmoveDb && inputNewTravelName != "") {
+      const id = self.crypto.randomUUID().toString();
+      setTravelList([{id, name: inputNewTravelName, description: inputNewTravelDescription}, ... travelList]);
+      await overmoveDb.execute('INSERT into travel (id, name, description) VALUES ($1, $2, $3)', [id, inputNewTravelName, inputNewTravelDescription]);
+      setInputNewTravelName("");
+      setInputNewTravelDescription("");
+    }
+  }
 
   const [phonePos, setPhonePos] = useState<Position | null>(null);
   const [posList, setPosList] = useState<Position[]>([]);
@@ -113,11 +140,6 @@ function App() {
     }
   }, [phonePos])
   
-  const [count, setCount] = useState<number>(0);
-  
-  async function plusCount() {
-    setCount(count + 1);
-  }
 
   useEffect(() => {
     if(map){
@@ -165,9 +187,6 @@ function App() {
     <p>pos list length</p>
     <p>manual: {posLen}</p>
 
-
-    <button onClick={plusCount}>数字を増やす</button>
-    <p>count: {count}</p>
 
     <button onClick={setMapCenter}>現在位置に戻る</button>
     <p>現在位置：({posX}, {posY})</p>
