@@ -14,12 +14,12 @@
     "@tauri-apps/plugin-geolocation": "^2.0.0",
     "@tauri-apps/plugin-log": "^2.0.0",
     "@tauri-apps/plugin-shell": ">=2.0.0",
-    "@tauri-apps/plugin-sql": "^2.0.0",
     "leaflet": "^1.9.4",
     "leaflet.offline": "^3.0.0-rc.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-leaflet": "^4.2.1"
+    "react-leaflet": "^4.2.1",
+    "react-modal": "^3.16.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": ">=2.0.0",

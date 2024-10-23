@@ -11,7 +11,7 @@ import {
   info,
   //error
 } from '@tauri-apps/plugin-log';
-import Database from '@tauri-apps/plugin-sql';
+import Modal from "react-modal";
 import L, {Map} from "leaflet";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet.offline";
@@ -19,33 +19,68 @@ import "leaflet/dist/leaflet.css";
 import "./App.css";
 
 
+// 異動の集合としての旅行
 type travel = {
   // uuid
   id: string,
   name: string,
   description: string,
+  move_id_list: string[]
+}
+
+
+// 位置の集合としての移動
+type move = {
+  id: string,
+  start: Date,
+  end: Date
+}
+
+// 位置
+type geolocation = {
+  pos: Position
 }
 
 function App() {
 
-  const [overmoveDb, setOvermoveDb] = useState<Database | undefined>();
 
-  useEffect(() => {
-    (async() => {
-      const db = await Database.load('sqlite:overmoveTest.db');
-      setOvermoveDb(db);
-    })()
-  }, [])
 
-  const [travelList, setTravelList] = useState<travel[]>([]);
+  const savedTravelList = localStorage.getItem('travelList');
+  const [travelList, setTravelList] = useState<travel[]>(savedTravelList ? JSON.parse(savedTravelList) : []);
+  const savedMoveList = localStorage.getItem('moveList');
+  const [moveList, setMoveList] = useState<move[]>(savedMoveList ? JSON.parse(savedMoveList) : []);
+  const savedGeolocationList = localStorage.getItem('geolocationList');
+  const [geolocationList, setGeolocationList] = useState<geolocation[]>(savedGeolocationList ? JSON.parse(savedGeolocationList) : []);
+
+
+  const [isOpenCreateTravelModal, setIsOpenCreateTravelModal] = useState(false);
   const [inputNewTravelName, setInputNewTravelName] = useState("");
   const [inputNewTravelDescription, setInputNewTravelDescription] = useState("");
 
+
+  useEffect(() => {
+    localStorage.setItem("travelList", JSON.stringify(travelList));
+  }, [travelList]);
+
+  useEffect(() => {
+    localStorage.setItem("moveList", JSON.stringify(moveList));
+  }, [moveList]);
+
+  useEffect(() => {
+    localStorage.setItem("geolocationList", JSON.stringify(geolocationList));
+  }, [geolocationList]);
+
+
   async function createNewTravel() {
-    if (overmoveDb && inputNewTravelName != "") {
+    if (inputNewTravelName != "") {
       const id = self.crypto.randomUUID().toString();
-      setTravelList([{id, name: inputNewTravelName, description: inputNewTravelDescription}, ... travelList]);
-      await overmoveDb.execute('INSERT into travel (id, name, description) VALUES ($1, $2, $3)', [id, inputNewTravelName, inputNewTravelDescription]);
+      const newTravel = {
+        id,
+        name: inputNewTravelName,
+        description: inputNewTravelDescription,
+        move_id_list: []
+      };
+      setTravelList([newTravel, ... travelList]);
       setInputNewTravelName("");
       setInputNewTravelDescription("");
     }
