@@ -52,12 +52,6 @@ function App() {
   const savedGeolocationList = localStorage.getItem('geolocationList');
   const [geolocationList, setGeolocationList] = useState<geolocation[]>(savedGeolocationList ? JSON.parse(savedGeolocationList) : []);
 
-
-  const [isOpenCreateTravelModal, setIsOpenCreateTravelModal] = useState(false);
-  const [inputNewTravelName, setInputNewTravelName] = useState("");
-  const [inputNewTravelDescription, setInputNewTravelDescription] = useState("");
-
-
   useEffect(() => {
     localStorage.setItem("travelList", JSON.stringify(travelList));
   }, [travelList]);
@@ -71,6 +65,10 @@ function App() {
   }, [geolocationList]);
 
 
+  const [isOpenCreateTravelModal, setIsOpenCreateTravelModal] = useState(false);
+  const [inputNewTravelName, setInputNewTravelName] = useState("");
+  const [inputNewTravelDescription, setInputNewTravelDescription] = useState("");
+
   async function createNewTravel() {
     if (inputNewTravelName != "") {
       const id = self.crypto.randomUUID().toString();
@@ -83,8 +81,12 @@ function App() {
       setTravelList([newTravel, ... travelList]);
       setInputNewTravelName("");
       setInputNewTravelDescription("");
+      setIsOpenCreateTravelModal(false);
     }
   }
+
+  const [nowTravelId, setNowTravelId] = useState<string | null>(null);
+
 
   const [phonePos, setPhonePos] = useState<Position | null>(null);
   const [posList, setPosList] = useState<Position[]>([]);
@@ -215,6 +217,41 @@ function App() {
 
   return (
     <div className="container">
+      <button onClick={() => setIsOpenCreateTravelModal(true)}>新しい旅行記録を作成する</button>
+      <Modal
+        isOpen={isOpenCreateTravelModal}
+        shouldCloseOnOverlayClick={true}
+      >
+        <h3>旅行名</h3>
+        <p>
+          <input
+            value={inputNewTravelName} name="createTravelName"
+            onChange={(event) => setInputNewTravelName(event.target.value)}
+          />
+        </p>
+        <p>説明</p>
+        <textarea
+          value={inputNewTravelDescription} name="createTravelDescription"
+          onChange={(event) => setInputNewTravelDescription(event.target.value)}
+        />
+        <button onClick={createNewTravel}>作成</button>
+        <button onClick={() => setIsOpenCreateTravelModal(false)}>キャンセル</button>
+      </Modal>
+
+    <p></p>
+
+    <h3>旅行を選択する</h3>
+    <select
+      name="selectTravel"
+      onChange={(event) => {
+        event.target.value == "null" ? setNowTravelId(null) : setNowTravelId(event.target.value)
+      }}
+    >
+      <option value="null">-</option>
+      {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
+    </select>
+
+    <p></p>
 
     <button onClick={getPhonePos}>位置情報を取得</button>
     <p>{phonePos ? <>{phonePos.timestamp} : ({phonePos.coords.latitude}, {phonePos.coords.longitude})</>: null}</p>
