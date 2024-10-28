@@ -171,7 +171,6 @@ function App() {
   const defaultPoxY = 139.699892;
   const [posX, setPosX] = useState<number>(defaultPosX);
   const [posY, setPosY] = useState<number>(defaultPoxY);
-  const [_mapZoom, setMapZoom] = useState<number>(14);
   const [_nowTime, setNowTime] = useState<number>(Date.now());
 
 
@@ -186,7 +185,6 @@ function App() {
     if (nowGeolocation) {
       setPosX(nowGeolocation.latitude);
       setPosY(nowGeolocation.longitude);
-      setMapZoom(14);
     } else {
       setPosX(defaultPosX);
       setPosY(defaultPoxY);
@@ -215,9 +213,8 @@ function App() {
   
       controlSaveTiles.addTo(map!);
 
-      setMapZoom(map.getZoom());
       setPosX(map.getCenter().lat);
-      setPosX(map.getCenter().lng);
+      setPosY(map.getCenter().lng);
     }
   }, [map]);
 
@@ -292,9 +289,16 @@ function App() {
     </span>
     <p></p>
 
-    <p>現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}</p>
+    <p>
+      現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}
+    </p>
 
-    <button onClick={setMapCenter}>現在位置に戻る</button>
+    <div>
+      <button onClick={() => setMapCenter()}>現在位置に戻る</button>
+    </div>
+
+    <p></p>
+
     <MapContainer
       style={{ width: "75vw", height: "60vh" }}
       center={[posX, posY]}
