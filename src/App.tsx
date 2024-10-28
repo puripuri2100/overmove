@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import {
   checkPermissions,
   requestPermissions,
-  getCurrentPosition,
   watchPosition,
-  Position
 } from '@tauri-apps/plugin-geolocation';
 import {
   //trace,
@@ -39,7 +37,19 @@ type move = {
 
 // 位置
 type geolocation = {
-  pos: Position
+  timestamp: Date,
+  // 緯度
+  latitude: number,
+  // 経度
+  longitude: number,
+  // 高度
+  altitude: number | null,
+  // 高精度な高度
+  altitudeAccuracy : number | null,
+  // 速度
+  speed: number | null,
+  // ユーザーが向いている向き
+  heading: number | null,
 }
 
 function App() {
@@ -87,39 +97,31 @@ function App() {
   }
 
   const [nowTravelId, setNowTravelId] = useState<string | null>(null);
-
+  const [nowMoveStartDate, setNowMoveStartDate] = useState<Date | null>(null);
   const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
 
   useEffect(() => {
-    const now = Date();
-  }, [nowTravelId, isRecordMove])
+    const now = new Date();
+    if (isRecordMove && nowTravelId) {
+      // 移動の記録の開始
+      setNowMoveStartDate(now);
+    }
+    if (!isRecordMove && nowTravelId && nowMoveStartDate) {
+      // 移動の記録の終了
+      const newMoveId = crypto.randomUUID().toString();
+      const move: move = {
+        id: newMoveId,
+        start: nowMoveStartDate,
+        end: now,
+      }
+      setMoveList([...moveList, move]);
+      setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, newMoveId]} : value));
+      setNowMoveStartDate(null);
+    }
+  }, [isRecordMove])
 
-  const [phonePos, setPhonePos] = useState<Position | null>(null);
-  const [posList, setPosList] = useState<Position[]>([]);
-  const [posLen, setPosLen] = useState<number>(0);
-  
-  async function getPhonePos() {
-    let permissions = await checkPermissions()
-    info("[INFO] permissions 1: " + permissions.location)
-    if (
-      permissions.location === 'prompt' ||
-      permissions.location === 'prompt-with-rationale'
-    ) {
-      permissions = await requestPermissions(['location'])
-    }
-  
-    info("[INFO] permissions 2: " + permissions.location)
-  
-    if (permissions.location === 'granted') {
-        info("[START] get pos")
-        const pos = await getCurrentPosition();
-        info("[END] get pos")
-        setPhonePos(pos);
-        setPosLen(posLen + 1);
-        setPosList([pos,...posList]);
-    }
-  }
-  
+  const [nowGeolocation, setNowGeolocation] = useState<geolocation | null>(null);
+
   useEffect(() => {
     (async() => {
       let permissions = await checkPermissions()
@@ -134,11 +136,22 @@ function App() {
         await watchPosition(
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
           (pos) => {
-            info("watch pos");
-            if (pos) {
-              setPhonePos(pos);
+            const isRecord = (() => {return isRecordMove})();
+            if (isRecord) {
+              if (pos) {
+                const geo: geolocation = {
+                  timestamp: new Date(pos.timestamp),
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                  altitude: pos.coords.altitude,
+                  altitudeAccuracy: pos.coords.altitudeAccuracy,
+                  speed: pos.coords.speed,
+                  heading: pos.coords.heading,
+                }
+                setNowGeolocation(geo);
+              }
             } else {
-              info("null position");
+              setNowGeolocation(null);
             }
           }
         )
@@ -146,14 +159,20 @@ function App() {
     })()
   }, [])
 
+  useEffect(() => {
+    if (nowGeolocation) {
+      setGeolocationList([...geolocationList, nowGeolocation]);
+    }
+  }, [nowGeolocation])
+
 
   const [map, _setMap] = useState<Map | undefined>();
   const defaultPosX = 35.688150;
   const defaultPoxY = 139.699892;
   const [posX, setPosX] = useState<number>(defaultPosX);
   const [posY, setPosY] = useState<number>(defaultPoxY);
-  const [mapZoom, setMapZoom] = useState<number>(14);
-  const [nowTime, setNowTime] = useState<number>(Date.now());
+  const [_mapZoom, setMapZoom] = useState<number>(14);
+  const [_nowTime, setNowTime] = useState<number>(Date.now());
 
 
   function setMapCenter() {
@@ -164,9 +183,9 @@ function App() {
       setPosX(nowCenter.lng);
     }
     info(`now pos: (${posX}, ${posY})`)
-    if (phonePos) {
-      setPosX(phonePos.coords.latitude);
-      setPosY(phonePos.coords.longitude);
+    if (nowGeolocation) {
+      setPosX(nowGeolocation.latitude);
+      setPosY(nowGeolocation.longitude);
       setMapZoom(14);
     } else {
       setPosX(defaultPosX);
@@ -175,14 +194,6 @@ function App() {
     setNowTime(Date.now())
     info(`now pos: (${posX}, ${posY})`)
   }
-
-  useEffect(() => {
-    if (phonePos) {
-      setPosLen(posLen + 1);
-      setPosList([phonePos,...posList]);
-    }
-  }, [phonePos])
-  
 
   useEffect(() => {
     if(map){
@@ -253,7 +264,18 @@ function App() {
       name="selectTravel"
       onChange={(event) => {
         // 旅行記録を変えるときには一旦位置記録を停止する
-        const now = Date();
+        const now = new Date();
+        if (nowMoveStartDate && nowTravelId) {
+          const newMoveId = crypto.randomUUID().toString();
+          const move: move = {
+            id: newMoveId,
+            start: nowMoveStartDate,
+            end: now,
+          }
+          setMoveList([...moveList, move]);
+          setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, newMoveId]} : value));
+          setNowMoveStartDate(null);
+        }
         setIsRecordMove(false);
 
         event.target.value == "null" ? setNowTravelId(null) : setNowTravelId(event.target.value)
@@ -270,15 +292,9 @@ function App() {
     </span>
     <p></p>
 
-    <button onClick={getPhonePos}>位置情報を取得</button>
-    <p>{phonePos ? <>{phonePos.timestamp} : ({phonePos.coords.latitude}, {phonePos.coords.longitude})</>: null}</p>
-
-    <p>pos list length</p>
-    <p>manual: {posLen}</p>
-
+    <p>現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}</p>
 
     <button onClick={setMapCenter}>現在位置に戻る</button>
-    <p>現在位置：({posX}, {posY})</p>
     <MapContainer
       style={{ width: "75vw", height: "60vh" }}
       center={[posX, posY]}
