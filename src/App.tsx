@@ -12,6 +12,7 @@ import {
   //error
 } from '@tauri-apps/plugin-log';
 import Modal from "react-modal";
+import Switch from "react-switch";
 import L, {Map} from "leaflet";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet.offline";
@@ -87,6 +88,11 @@ function App() {
 
   const [nowTravelId, setNowTravelId] = useState<string | null>(null);
 
+  const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
+
+  useEffect(() => {
+    const now = Date();
+  }, [nowTravelId, isRecordMove])
 
   const [phonePos, setPhonePos] = useState<Position | null>(null);
   const [posList, setPosList] = useState<Position[]>([]);
@@ -234,8 +240,10 @@ function App() {
           value={inputNewTravelDescription} name="createTravelDescription"
           onChange={(event) => setInputNewTravelDescription(event.target.value)}
         />
-        <button onClick={createNewTravel}>作成</button>
-        <button onClick={() => setIsOpenCreateTravelModal(false)}>キャンセル</button>
+        <div>
+          <button onClick={createNewTravel}>作成</button>
+          <button onClick={() => setIsOpenCreateTravelModal(false)}>キャンセル</button>
+        </div>
       </Modal>
 
     <p></p>
@@ -244,6 +252,10 @@ function App() {
     <select
       name="selectTravel"
       onChange={(event) => {
+        // 旅行記録を変えるときには一旦位置記録を停止する
+        const now = Date();
+        setIsRecordMove(false);
+
         event.target.value == "null" ? setNowTravelId(null) : setNowTravelId(event.target.value)
       }}
     >
@@ -251,6 +263,11 @@ function App() {
       {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
     </select>
 
+    <p></p>
+    <span>
+      記録を開始する
+      <Switch onChange={(checked) => {setIsRecordMove(checked)}} checked={isRecordMove}/>
+    </span>
     <p></p>
 
     <button onClick={getPhonePos}>位置情報を取得</button>
