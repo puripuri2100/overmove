@@ -78,28 +78,35 @@ function App() {
 
   useEffect(() => {
     (async() => {
-      const existsTravelListFile = await exists(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      const existsTravelListFile = await exists(travelListFilePath, {baseDir: BaseDirectory.AppData});
       if (existsTravelListFile) {
-        const travelListFileText = await readTextFile(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        const travelListFileText = await readTextFile(travelListFilePath, {baseDir: BaseDirectory.AppData});
+        info(`travelListFileText: ${travelListFileText}`);
         setTravelList(JSON.parse(travelListFileText));
+        info("read travelList");
       } else {
-        create(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        create(travelListFilePath, {baseDir: BaseDirectory.AppData});
+        info("create travelList");
       }
 
-      const existsMoveListFile = await exists(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      const existsMoveListFile = await exists(moveListFilePath, {baseDir: BaseDirectory.AppData});
       if (existsMoveListFile) {
-        const moveListFileText = await readTextFile(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        const moveListFileText = await readTextFile(moveListFilePath, {baseDir: BaseDirectory.AppData});
+        info(`moveListFileText: ${moveListFileText}`);
         setMoveList(JSON.parse(moveListFileText));
+        info("read moveList");
       } else {
-        create(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        create(moveListFilePath, {baseDir: BaseDirectory.AppData});
+        info("create moveList");
       }
 
-      const existsGeolocationListFile = await exists(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      const existsGeolocationListFile = await exists(geolocationListFilePath, {baseDir: BaseDirectory.AppData});
       if (existsGeolocationListFile) {
-        const geolocationListFileText = await readTextFile(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        const geolocationListFileText = await readTextFile(geolocationListFilePath, {baseDir: BaseDirectory.AppData});
+        info(`geolocationListFileText: ${geolocationListFileText}`);
         setGeolocationList(JSON.parse(geolocationListFileText));
       } else {
-        create(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        create(geolocationListFilePath, {baseDir: BaseDirectory.AppData});
       }
     })();
   }, [])
@@ -107,19 +114,23 @@ function App() {
 
   useEffect(() => {
     (async() => {
-      await writeTextFile(travelListFilePath, JSON.stringify(travelList), {baseDir: BaseDirectory.AppLocalData});
+      info(`travelList: ${travelList}`);
+      await writeTextFile(travelListFilePath, JSON.stringify(travelList), {baseDir: BaseDirectory.AppData});
+      info("write travelList");
     })()
   }, [travelList]);
 
   useEffect(() => {
     (async() => {
-      await writeTextFile(moveListFilePath, JSON.stringify(moveList), {baseDir: BaseDirectory.AppLocalData});
+      await writeTextFile(moveListFilePath, JSON.stringify(moveList), {baseDir: BaseDirectory.AppData});
+      info("write moveList");
     })()
   }, [moveList]);
 
   useEffect(() => {
     (async() => {
-      await writeTextFile(geolocationListFilePath, JSON.stringify(geolocationList), {baseDir: BaseDirectory.AppLocalData});
+      await writeTextFile(geolocationListFilePath, JSON.stringify(geolocationList), {baseDir: BaseDirectory.AppData});
+      info("write geolocationList");
     })()
   }, [geolocationList]);
 

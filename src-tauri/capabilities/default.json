@@ -21,11 +21,14 @@
     "fs:scope-picture-recursive",
     "fs:allow-picture-meta-recursive",
     "fs:allow-picture-read-recursive",
+    "fs:scope-data-recursive",
+    "fs:allow-data-meta-recursive",
+    "fs:allow-data-read-recursive",
     "fs:allow-app-read-recursive",
     "fs:allow-app-meta-recursive",
-    "fs:scope-applocaldata",
-    "fs:allow-applocaldata-read",
-    "fs:allow-applocaldata-write",
-    "fs:allow-applocaldata-meta"
+    "fs:scope-appdata-recursive",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    "fs:allow-appdata-meta-recursive"
   ]
 }
