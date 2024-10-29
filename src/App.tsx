@@ -340,8 +340,8 @@ function App() {
               }}
               disabled={isRecordMove}
             >
-              <option value="here">現在位置</option>
-              {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
+              <option value="here" key="showMap-Here">現在位置</option>
+              {travelList.map((value) => {return <option value={value.id} key={"showMap-"+value.id}>{value.name}</option>})}
             </select>
             <p>map id: {showMapId}</p>
             <p>
@@ -392,8 +392,8 @@ function App() {
               event.target.value == "null" ? setNowTravelId(null) : setNowTravelId(event.target.value)
             }}
           >
-            <option value="null">-</option>
-            {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
+            <option value="null" key="selectTravel-Null">-</option>
+            {travelList.map((value) => {return <option value={value.id} key={"selectTravel-"+value.id}>{value.name}</option>})}
           </select>
 
           <p>travel id: {nowTravelId ? nowTravelId : "null"}</p>
