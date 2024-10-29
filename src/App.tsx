@@ -173,6 +173,7 @@ function App() {
   const [posY, setPosY] = useState<number>(defaultPoxY);
   const [_nowTime, setNowTime] = useState<number>(Date.now());
 
+  const [showMapId, setShowMapId] = useState("here");
 
   function setMapCenter() {
     info("click setMapCenter()");
@@ -272,11 +273,22 @@ function App() {
           </>
         : nowMode == "showMap" ?
           <>
+            {isRecordMove ? <p>移動中は現在位置の表示のみできます。</p> : null}
+            <select
+              name="showMapId"
+              id="showMapId"
+              onChange={(event) => setShowMapId(event.target.value)}
+              disabled={isRecordMove}
+            >
+              <option value="here">現在位置</option>
+              {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
+            </select>
+            <p>map id: {showMapId}</p>
             <p>
               現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}
             </p>
             <div>
-              <button onClick={() => setMapCenter()}>現在位置に戻る</button>
+              <button onClick={() => setMapCenter()}>{showMapId == "here" ? "現在位置に戻る" : "移動の記録を再生する"}</button>
             </div>
             <p></p>
             <MapContainer
@@ -322,6 +334,7 @@ function App() {
             {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
           </select>
 
+          <p>travel id: {nowTravelId}</p>
           <p></p>
           <span>
             記録を開始する
