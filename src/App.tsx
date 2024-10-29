@@ -9,7 +9,6 @@ import {
   info,
   //error
 } from '@tauri-apps/plugin-log';
-import Modal from "react-modal";
 import Switch from "react-switch";
 import L, {Map} from "leaflet";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
@@ -52,9 +51,12 @@ type geolocation = {
   heading: number | null,
 }
 
+// モード選択
+type mode = "recordMove" | "createTravel" | "showMap" | "fetchData";
+
 function App() {
 
-
+  const [nowMode, setNowMode] = useState<mode>("recordMove");
 
   const savedTravelList = localStorage.getItem('travelList');
   const [travelList, setTravelList] = useState<travel[]>(savedTravelList ? JSON.parse(savedTravelList) : []);
@@ -76,7 +78,6 @@ function App() {
   }, [geolocationList]);
 
 
-  const [isOpenCreateTravelModal, setIsOpenCreateTravelModal] = useState(false);
   const [inputNewTravelName, setInputNewTravelName] = useState("");
   const [inputNewTravelDescription, setInputNewTravelDescription] = useState("");
 
@@ -92,7 +93,6 @@ function App() {
       setTravelList([newTravel, ... travelList]);
       setInputNewTravelName("");
       setInputNewTravelDescription("");
-      setIsOpenCreateTravelModal(false);
     }
   }
 
@@ -231,88 +231,105 @@ function App() {
 
   return (
     <div className="container">
-      <button onClick={() => setIsOpenCreateTravelModal(true)}>新しい旅行記録を作成する</button>
-      <Modal
-        isOpen={isOpenCreateTravelModal}
-        shouldCloseOnOverlayClick={true}
-      >
-        <h3>旅行名</h3>
-        <p>
-          <input
-            value={inputNewTravelName} name="createTravelName"
-            onChange={(event) => setInputNewTravelName(event.target.value)}
+      <p>
+        <button onClick={() => setNowMode("recordMove")}>記録</button>
+        <button onClick={() => setNowMode("showMap")}>地図</button>
+        <button onClick={() => setNowMode("createTravel")}>作成</button>
+        <button onClick={() => setNowMode("fetchData")}>DB</button>
+      </p>
+      {
+        nowMode == "createTravel" ?
+        <>
+          <h3>旅行名</h3>
+          <p>
+            <input
+              value={inputNewTravelName} name="createTravelName"
+              onChange={(event) => setInputNewTravelName(event.target.value)}
+            />
+          </p>
+          <p>説明</p>
+          <textarea
+            value={inputNewTravelDescription} name="createTravelDescription"
+            onChange={(event) => setInputNewTravelDescription(event.target.value)}
           />
-        </p>
-        <p>説明</p>
-        <textarea
-          value={inputNewTravelDescription} name="createTravelDescription"
-          onChange={(event) => setInputNewTravelDescription(event.target.value)}
-        />
-        <div>
-          <button onClick={createNewTravel}>作成</button>
-          <button onClick={() => setIsOpenCreateTravelModal(false)}>キャンセル</button>
-        </div>
-      </Modal>
+          <div>
+            <button onClick={createNewTravel}>作成</button>
+          </div>
+        </>
+        : nowMode == "fetchData" ?
+          <>
+            <p>まだ動かない</p>
+            <p>
+              移動の記録中はデータベースの更新はできません。
+              <Switch onChange={(checked) => {setIsRecordMove(checked)}} disabled={!isRecordMove} checked={isRecordMove}/>
+            </p>
+            <div>
+              <button>データを上書きダウンロードする</button>
+            </div>
+            <div>
+              <button>データをサーバーに送信する</button>
+            </div>
+          </>
+        : nowMode == "showMap" ?
+          <>
+            <p>
+              現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}
+            </p>
+            <div>
+              <button onClick={() => setMapCenter()}>現在位置に戻る</button>
+            </div>
+            <p></p>
+            <MapContainer
+              style={{ width: "75vw", height: "60vh" }}
+              center={[posX, posY]}
+              zoom={14}
+              minZoom={5}
+              maxZoom={18}
+              scrollWheelZoom={true}
+            >
+              <ChangeView center={[posX, posY]}/>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+            </MapContainer>
+          </>
+        :
+        <>
+          <h3>旅行を選択する</h3>
+          <select
+            name="selectTravel"
+            onChange={(event) => {
+              // 旅行記録を変えるときには一旦位置記録を停止する
+              const now = new Date();
+              if (nowMoveStartDate && nowTravelId) {
+                const newMoveId = crypto.randomUUID().toString();
+                const move: move = {
+                  id: newMoveId,
+                  start: nowMoveStartDate,
+                  end: now,
+                }
+                setMoveList([...moveList, move]);
+                setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, newMoveId]} : value));
+                setNowMoveStartDate(null);
+              }
+              setIsRecordMove(false);
 
-    <p></p>
+              event.target.value == "null" ? setNowTravelId(null) : setNowTravelId(event.target.value)
+            }}
+          >
+            <option value="null">-</option>
+            {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
+          </select>
 
-    <h3>旅行を選択する</h3>
-    <select
-      name="selectTravel"
-      onChange={(event) => {
-        // 旅行記録を変えるときには一旦位置記録を停止する
-        const now = new Date();
-        if (nowMoveStartDate && nowTravelId) {
-          const newMoveId = crypto.randomUUID().toString();
-          const move: move = {
-            id: newMoveId,
-            start: nowMoveStartDate,
-            end: now,
-          }
-          setMoveList([...moveList, move]);
-          setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, newMoveId]} : value));
-          setNowMoveStartDate(null);
-        }
-        setIsRecordMove(false);
+          <p></p>
+          <span>
+            記録を開始する
+            <Switch onChange={(checked) => {setIsRecordMove(checked)}}  disabled={nowTravelId == null} checked={isRecordMove}/>
+          </span>
+        </>
+      }
 
-        event.target.value == "null" ? setNowTravelId(null) : setNowTravelId(event.target.value)
-      }}
-    >
-      <option value="null">-</option>
-      {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
-    </select>
-
-    <p></p>
-    <span>
-      記録を開始する
-      <Switch onChange={(checked) => {setIsRecordMove(checked)}} checked={isRecordMove}/>
-    </span>
-    <p></p>
-
-    <p>
-      現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}
-    </p>
-
-    <div>
-      <button onClick={() => setMapCenter()}>現在位置に戻る</button>
-    </div>
-
-    <p></p>
-
-    <MapContainer
-      style={{ width: "75vw", height: "60vh" }}
-      center={[posX, posY]}
-      zoom={14}
-      minZoom={5}
-      maxZoom={18}
-      scrollWheelZoom={true}
-    >
-      <ChangeView center={[posX, posY]}/>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-    </MapContainer>
     </div>
   );
 }
