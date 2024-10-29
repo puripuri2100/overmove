@@ -277,7 +277,10 @@ function App() {
             <select
               name="showMapId"
               id="showMapId"
-              onChange={(event) => setShowMapId(event.target.value)}
+              value={showMapId}
+              onChange={(event) => {
+                setShowMapId(event.target.value);
+              }}
               disabled={isRecordMove}
             >
               <option value="here">現在位置</option>
@@ -311,6 +314,8 @@ function App() {
           <h3>旅行を選択する</h3>
           <select
             name="selectTravel"
+            id="selectTravel"
+            value={nowTravelId ? nowTravelId : "null"}
             onChange={(event) => {
               // 旅行記録を変えるときには一旦位置記録を停止する
               const now = new Date();
@@ -334,11 +339,11 @@ function App() {
             {travelList.map((value) => {return <option value={value.id}>{value.name}</option>})}
           </select>
 
-          <p>travel id: {nowTravelId}</p>
+          <p>travel id: {nowTravelId ? nowTravelId : "null"}</p>
           <p></p>
           <span>
             記録を開始する
-            <Switch onChange={(checked) => {setIsRecordMove(checked)}}  disabled={nowTravelId == null} checked={isRecordMove}/>
+            <Switch onChange={(checked) => {setIsRecordMove(checked)}} disabled={nowTravelId == null} checked={isRecordMove}/>
           </span>
         </>
       }
