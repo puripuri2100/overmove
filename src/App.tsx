@@ -9,6 +9,13 @@ import {
   info,
   //error
 } from '@tauri-apps/plugin-log';
+import {
+  readTextFile, 
+  writeTextFile,
+  BaseDirectory,
+  exists,
+  create
+} from '@tauri-apps/plugin-fs';
 import Switch from "react-switch";
 import L, {Map} from "leaflet";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
@@ -58,23 +65,62 @@ function App() {
 
   const [nowMode, setNowMode] = useState<mode>("recordMove");
 
-  const savedTravelList = localStorage.getItem('travelList');
-  const [travelList, setTravelList] = useState<travel[]>(savedTravelList ? JSON.parse(savedTravelList) : []);
-  const savedMoveList = localStorage.getItem('moveList');
-  const [moveList, setMoveList] = useState<move[]>(savedMoveList ? JSON.parse(savedMoveList) : []);
-  const savedGeolocationList = localStorage.getItem('geolocationList');
-  const [geolocationList, setGeolocationList] = useState<geolocation[]>(savedGeolocationList ? JSON.parse(savedGeolocationList) : []);
+
+
+  const [travelList, setTravelList] = useState<travel[]>([]);
+  const [moveList, setMoveList] = useState<move[]>([]);
+  const [geolocationList, setGeolocationList] = useState<geolocation[]>([]);
+
+
+  const travelListFilePath = "travelList.json";
+  const moveListFilePath = "moveList.json";
+  const geolocationListFilePath = "geolocationList.json";
 
   useEffect(() => {
-    localStorage.setItem("travelList", JSON.stringify(travelList));
+    (async() => {
+      const existsTravelListFile = await exists(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      if (existsTravelListFile) {
+        const travelListFileText = await readTextFile(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        setTravelList(JSON.parse(travelListFileText));
+      } else {
+        create(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      }
+
+      const existsMoveListFile = await exists(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      if (existsMoveListFile) {
+        const moveListFileText = await readTextFile(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        setMoveList(JSON.parse(moveListFileText));
+      } else {
+        create(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      }
+
+      const existsGeolocationListFile = await exists(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      if (existsGeolocationListFile) {
+        const geolocationListFileText = await readTextFile(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+        setGeolocationList(JSON.parse(geolocationListFileText));
+      } else {
+        create(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      }
+    })();
+  }, [])
+
+
+  useEffect(() => {
+    (async() => {
+      await writeTextFile(travelListFilePath, JSON.stringify(travelList), {baseDir: BaseDirectory.AppLocalData});
+    })()
   }, [travelList]);
 
   useEffect(() => {
-    localStorage.setItem("moveList", JSON.stringify(moveList));
+    (async() => {
+      await writeTextFile(moveListFilePath, JSON.stringify(moveList), {baseDir: BaseDirectory.AppLocalData});
+    })()
   }, [moveList]);
 
   useEffect(() => {
-    localStorage.setItem("geolocationList", JSON.stringify(geolocationList));
+    (async() => {
+      await writeTextFile(geolocationListFilePath, JSON.stringify(geolocationList), {baseDir: BaseDirectory.AppLocalData});
+    })()
   }, [geolocationList]);
 
 
