@@ -95,6 +95,7 @@ function App() {
   });
 
   const [isDataFetch, setIsDataFetch] = useState<"import" | "export" | "hide">("hide");
+  const [importDataText, setImportDataText] = useState("");
 
   const travelListFilePath = "travelList.json";
   const moveListFilePath = "moveList.json";
@@ -391,8 +392,24 @@ function App() {
               :
                 isDataFetch == "import" ?
                   <div>
-                    <button onClick={}>取り込む</button>
-                    <textarea name="" id=""></textarea>
+                    <div>
+                      <button onClick={() => {
+                        const importData: allDataType = JSON.parse(importDataText);
+                        if (importData) {
+                          setTravelList(importData.travel);
+                          setMoveList(importData.move);
+                          setGeolocationList(importData.geolocation);
+                        }
+                      }}>
+                        取り込む
+                      </button>
+                    </div>
+                    <textarea
+                      value={importDataText}
+                      name="importDataTextEdit"
+                      id="importDataTextEdit"
+                      onChange={(event) => setImportDataText(event.target.value)}
+                    />
                   </div>
                 :
                   null
