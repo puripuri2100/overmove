@@ -17,6 +17,7 @@ import {
   create
 } from '@tauri-apps/plugin-fs';
 import Switch from "react-switch";
+import { CopyBlock, github } from "react-code-blocks";
 import L, {Map} from "leaflet";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet.offline";
@@ -58,10 +59,25 @@ type geolocation = {
   heading: number | null,
 }
 
+type allDataType = {
+  version: string,
+  travel: travel[],
+  move: move[]
+  geolocation: geolocation[],
+}
+
+// 地図に表示する移動の情報
+type mapMoveInfo = {
+  moveInfo: move,
+  geolocationList: geolocation[]
+}
+
 // モード選択
 type mode = "recordMove" | "createTravel" | "showMap" | "fetchData";
 
 function App() {
+
+  const version = "0.1.0"
 
   const [nowMode, setNowMode] = useState<mode>("recordMove");
 
@@ -71,6 +87,14 @@ function App() {
   const [moveList, setMoveList] = useState<move[]>([]);
   const [geolocationList, setGeolocationList] = useState<geolocation[]>([]);
 
+  const [allData, setAllData] = useState<allDataType>({
+    version,
+    travel: [],
+    move: [],
+    geolocation: []
+  });
+
+  const [isDataFetch, setIsDataFetch] = useState<"import" | "export" | "hide">("hide");
 
   const travelListFilePath = "travelList.json";
   const moveListFilePath = "moveList.json";
@@ -133,6 +157,16 @@ function App() {
       info("write geolocationList");
     })()
   }, [geolocationList]);
+
+
+  useEffect(() => {
+    setAllData({
+      version,
+      travel: travelList,
+      move: moveList,
+      geolocation: geolocationList
+    })
+  }, [travelList, moveList, geolocationList])
 
 
   const [inputNewTravelName, setInputNewTravelName] = useState("");
@@ -231,6 +265,27 @@ function App() {
   const [_nowTime, setNowTime] = useState<number>(Date.now());
 
   const [showMapId, setShowMapId] = useState("here");
+  const [mapMoveList, setMapMoveList] = useState<mapMoveInfo[]>([]);
+
+
+  // 選択された旅行に含まれる移動のリストを作成する
+  useEffect(() => {
+    const travelInfo = travelList.find((value) => value.id == showMapId);
+    if (travelInfo) {
+      const targetMoveList = moveList.filter((value) => {travelInfo.move_id_list.includes(value.id)});
+      const targetGeoList = targetMoveList.map((moveInfo) => {
+        const lst = geolocationList.filter((geo) => {moveInfo.start <= geo.timestamp && geo.timestamp <= moveInfo.end});
+        const data: mapMoveInfo = {
+          moveInfo,
+          geolocationList: lst
+        };
+        return data
+      });
+      setMapMoveList(targetGeoList);
+    } else {
+      setMapMoveList([]);
+    }
+  }, [showMapId]);
 
   function setMapCenter() {
     info("click setMapCenter()");
@@ -316,17 +371,32 @@ function App() {
         </>
         : nowMode == "fetchData" ?
           <>
-            <p>まだ動かない</p>
             <p>
               移動の記録中はデータベースの更新はできません。
               <Switch onChange={(checked) => {setIsRecordMove(checked)}} disabled={!isRecordMove} checked={isRecordMove}/>
             </p>
             <div>
-              <button>データを上書きダウンロードする</button>
+              <button onClick={() => setIsDataFetch("export")}>現在のデータを表示する</button>
+              <button onClick={() => setIsDataFetch("import")}>データを取り込む</button>
+              <button onClick={() => setIsDataFetch("hide")}>隠す</button>
             </div>
-            <div>
-              <button>データをサーバーに送信する</button>
-            </div>
+            {
+              isDataFetch == "export" ?
+                <CopyBlock
+                  text={JSON.stringify(allData, null, 2)}
+                  language="json"
+                  theme={github}
+                  showLineNumbers={false}
+                />
+              :
+                isDataFetch == "import" ?
+                  <div>
+                    <button onClick={}>取り込む</button>
+                    <textarea name="" id=""></textarea>
+                  </div>
+                :
+                  null
+            }
           </>
         : nowMode == "showMap" ?
           <>
@@ -344,11 +414,28 @@ function App() {
               {travelList.map((value) => {return <option value={value.id} key={"showMap-"+value.id}>{value.name}</option>})}
             </select>
             <p>map id: {showMapId}</p>
+            <p>{showMapId != "here" ? travelList.find((value) => value.id == showMapId)?.description : null}</p>
             <p>
               現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}
             </p>
             <div>
-              <button onClick={() => setMapCenter()}>{showMapId == "here" ? "現在位置に戻る" : "移動の記録を再生する"}</button>
+              {showMapId == "here" ?
+                <button
+                  onClick={() => {
+                    setMapCenter()
+                  }}
+                >
+                  {showMapId == "here" ? "現在位置に戻る" : "移動の記録を再生する"}
+                </button>
+              :
+                <button
+                  onClick={() => {
+                    setMapCenter()
+                  }}
+                >
+                  移動の記録を再生する
+                </button>
+              }
             </div>
             <p></p>
             <MapContainer
