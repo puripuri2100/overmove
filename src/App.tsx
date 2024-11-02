@@ -17,9 +17,10 @@ import {
 import Switch from "react-switch";
 import { CopyBlock, github } from "react-code-blocks";
 import {
-  format,
   differenceInSeconds
 } from "date-fns";
+import distance from "@turf/distance";
+import { point } from "@turf/helpers"
 import L, {Map} from "leaflet";
 import {
   MapContainer,
@@ -308,6 +309,9 @@ function App() {
 
   const [isSetMapCenter, setIsSetMapCenter] = useState<boolean>(false);
 
+  // 移動の記録を再生するかどうかのフラグ
+  const [isPlayMove, setIsPlayMove] = useState<boolean>(false);
+
   // 現在位置に移動速度などを表示するかどうかのフラグ
   const [isNowPosPopup, setIsNowPosPopup] = useState(false);
 
@@ -339,16 +343,6 @@ function App() {
     }
   }
 
-  // 2地点間の緯度経度から間の距離を求める
-  // Haversineの公式を用いる
-  // 赤道半径R: 6378.137km
-  // 緯度x1, 経度y1
-  // 緯度y1, 経度y2
-  // D = R * acos(sin(y1) * sin(y2) + cos(y1) * cos(y2) * cos(x2 - x1))
-  function calDistance(x1: number, y1: number, x2: number, y2: number): number {
-    const r = 6378.137;
-    return r * Math.acos(Math.sin(y1) * Math.sin(y2) + Math.cos(y1) * Math.cos(y2) * Math.cos(x2 - x1));
-  }
 
   // 選択された旅行に含まれる移動のリストを作成する
   useEffect(() => {
@@ -377,7 +371,11 @@ function App() {
           if (i != 0) {
             const x = value.latitude;
             const y = value.longitude;
-            const d = calDistance(x, y, tempX, tempY);
+            const d = distance(
+              point([y, x]),
+              point([tempY, tempX]),
+              {units: "kilometers"}
+            )
             distanceSum += d;
             tempX = x;
             tempY = y;
@@ -438,6 +436,22 @@ function App() {
         nowMap.setZoom(14);
       }
       setIsSetMapCenter(false);
+    }
+    if (isPlayMove) {
+      const nowMap = useMap();
+      if (showMapId != "here" && moveList.length > 0) {
+        if (mapMoveList[0].geolocationList.length > 0) {
+          nowMap.setView([mapMoveList[0].geolocationList[0].latitude, mapMoveList[0].geolocationList[0].longitude]);
+          nowMap.setZoom(14);
+        } else {
+          nowMap.setView([defaultPosX, defaultPoxY]);
+          nowMap.setZoom(14);
+        }
+      } else {
+        nowMap.setView([defaultPosX, defaultPoxY]);
+        nowMap.setZoom(14);
+      }
+      setIsPlayMove(false);
     }
     return null;
   }
@@ -522,6 +536,7 @@ function App() {
               id="showMapId"
               value={showMapId}
               onChange={(event) => {
+                setShowMoveInfo(null);
                 setShowMapId(event.target.value);
               }}
               disabled={isRecordMove}
@@ -531,6 +546,13 @@ function App() {
             </select>
             <p>map id: {showMapId}</p>
             <p>{showMapId != "here" ? travelList.find((value) => value.id == showMapId)?.description : null}</p>
+            {showMapId != "here" ? <p>
+              総移動距離: {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.distanceSum}, 0) / 100) / 10}km <br />
+              総移動時間:
+                      {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.moveSeconds}, 0) / 3600)}時間
+                      {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.moveSeconds}, 0)  / 60) % 60}分
+                      {(mapMoveList.reduce(function(sum, value) {return sum + value.moveSeconds}, 0)  % 60)}秒
+              </p> : null}
             <p>
               現在位置：{ nowGeolocation ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})` : "null"}
             </p>
@@ -541,12 +563,12 @@ function App() {
                     setIsSetMapCenter(true);
                   }}
                 >
-                  {showMapId == "here" ? "現在位置に戻る" : "移動の記録を再生する"}
+                  現在位置に戻る
                 </button>
               :
                 <button
                   onClick={() => {
-                    setIsSetMapCenter(true);
+                    setIsPlayMove(true);
                   }}
                 >
                   移動の記録を再生する
@@ -591,7 +613,9 @@ function App() {
               }
               {
                 showMoveInfo ?
-                  <Popup position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}>
+                  <Popup
+                    position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}
+                  >
                     <>{showMoveInfo.moveInfo.start.toLocaleString()} から {showMoveInfo.moveInfo.end}まで<br /></>
                     <>
                       移動時間：
@@ -615,7 +639,12 @@ function App() {
                 />
               : null}
               {nowGeolocation && isNowPosPopup ?
-                <Popup position={[nowGeolocation.latitude, nowGeolocation.longitude]}>
+                <Popup
+                  position={[nowGeolocation.latitude, nowGeolocation.longitude]}
+                  eventHandlers={{
+                    click: () => {setIsNowPosPopup(false)}
+                  }}
+                >
                   {nowGeolocation.speed ? <>速度：{convertSpeed(nowGeolocation.speed)}km/h<br/></> : null}
                   {nowGeolocation.altitude ? <>高度：{nowGeolocation.altitude}<br/></> : null}
                   {nowGeolocation.heading ? <>方角：{headingValueToDirection(nowGeolocation.heading)}</> : null}
