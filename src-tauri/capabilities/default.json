@@ -16,7 +16,22 @@
     "geolocation:allow-clear-watch",
     "log:default",
     "fs:default",
-    "fs:allow-exists",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+    },
+    {
+      "identifier": "fs:allow-create",
+      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+    },
+    {
+      "identifier": "fs:allow-write",
+      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+    },
     "fs:allow-create",
     "fs:scope-picture-recursive",
     "fs:allow-picture-meta-recursive",
@@ -29,6 +44,9 @@
     "fs:scope-appdata-recursive",
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write-recursive",
-    "fs:allow-appdata-meta-recursive"
+    "fs:allow-applocaldata-meta-recursive",
+    "fs:scope-applocaldata-recursive",
+    "fs:allow-applocaldata-read-recursive",
+    "fs:allow-applocaldata-write-recursive"
   ]
 }
