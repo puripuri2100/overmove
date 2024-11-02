@@ -5,9 +5,7 @@ import {
   watchPosition,
 } from '@tauri-apps/plugin-geolocation';
 import {
-  //trace,
-  info,
-  //error
+  info
 } from '@tauri-apps/plugin-log';
 import {
   readTextFile, 
@@ -19,7 +17,7 @@ import {
 import Switch from "react-switch";
 import { CopyBlock, github } from "react-code-blocks";
 import L, {Map} from "leaflet";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap, Polyline, Circle } from "react-leaflet";
 import "leaflet.offline";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
@@ -228,22 +226,20 @@ function App() {
         await watchPosition(
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
           (pos) => {
-            const isRecord = (() => {return isRecordMove})();
-            if (isRecord) {
-              if (pos) {
-                const geo: geolocation = {
-                  timestamp: new Date(pos.timestamp),
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                  altitude: pos.coords.altitude,
-                  altitudeAccuracy: pos.coords.altitudeAccuracy,
-                  speed: pos.coords.speed,
-                  heading: pos.coords.heading,
-                }
-                setNowGeolocation(geo);
+            if (pos) {
+              info("watchPosition success")
+              const geo: geolocation = {
+                timestamp: new Date(pos.timestamp),
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                altitude: pos.coords.altitude,
+                altitudeAccuracy: pos.coords.altitudeAccuracy,
+                speed: pos.coords.speed,
+                heading: pos.coords.heading,
               }
+              setNowGeolocation(geo);
             } else {
-              setNowGeolocation(null);
+              info("error: watchPosition failed")
             }
           }
         )
@@ -252,7 +248,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (nowGeolocation) {
+    if (nowGeolocation && isRecordMove) {
       setGeolocationList([...geolocationList, nowGeolocation]);
     }
   }, [nowGeolocation])
@@ -261,12 +257,11 @@ function App() {
   const [map, _setMap] = useState<Map | undefined>();
   const defaultPosX = 35.688150;
   const defaultPoxY = 139.699892;
-  const [posX, setPosX] = useState<number>(defaultPosX);
-  const [posY, setPosY] = useState<number>(defaultPoxY);
-  const [_nowTime, setNowTime] = useState<number>(Date.now());
 
   const [showMapId, setShowMapId] = useState("here");
   const [mapMoveList, setMapMoveList] = useState<mapMoveInfo[]>([]);
+
+  const [isSetMapCenter, setIsSetMapCenter] = useState<boolean>(false);
 
 
   // 選択された旅行に含まれる移動のリストを作成する
@@ -288,24 +283,6 @@ function App() {
     }
   }, [showMapId]);
 
-  function setMapCenter() {
-    info("click setMapCenter()");
-    if (map) {
-      const nowCenter = map.getCenter();
-      setPosX(nowCenter.lat);
-      setPosX(nowCenter.lng);
-    }
-    info(`now pos: (${posX}, ${posY})`)
-    if (nowGeolocation) {
-      setPosX(nowGeolocation.latitude);
-      setPosY(nowGeolocation.longitude);
-    } else {
-      setPosX(defaultPosX);
-      setPosY(defaultPoxY);
-    }
-    setNowTime(Date.now())
-    info(`now pos: (${posX}, ${posY})`)
-  }
 
   useEffect(() => {
     if(map){
@@ -326,20 +303,22 @@ function App() {
       );
   
       controlSaveTiles.addTo(map!);
-
-      setPosX(map.getCenter().lat);
-      setPosY(map.getCenter().lng);
     }
   }, [map]);
 
-  type ChangeViewProps = {
-    center: [number, number]
-  }
 
-  function ChangeView(props: ChangeViewProps) {
-    const nowMap = useMap();
-    nowMap.setView(props.center);
-    nowMap.setZoom(14);
+  function ChangeView() {
+    if (isSetMapCenter) {
+      const nowMap = useMap();
+      if (nowGeolocation) {
+        nowMap.setView([nowGeolocation.latitude, nowGeolocation.longitude]);
+        nowMap.setZoom(14);
+      } else {
+        nowMap.setView([defaultPosX, defaultPoxY]);
+        nowMap.setZoom(14);
+      }
+      setIsSetMapCenter(false);
+    }
     return null;
   }
 
@@ -439,7 +418,7 @@ function App() {
               {showMapId == "here" ?
                 <button
                   onClick={() => {
-                    setMapCenter()
+                    setIsSetMapCenter(true);
                   }}
                 >
                   {showMapId == "here" ? "現在位置に戻る" : "移動の記録を再生する"}
@@ -447,7 +426,7 @@ function App() {
               :
                 <button
                   onClick={() => {
-                    setMapCenter()
+                    setIsSetMapCenter(true);
                   }}
                 >
                   移動の記録を再生する
@@ -457,17 +436,39 @@ function App() {
             <p></p>
             <MapContainer
               style={{ width: "75vw", height: "60vh" }}
-              center={[posX, posY]}
+              center={
+                nowGeolocation ?
+                  [nowGeolocation.latitude, nowGeolocation.longitude]
+                : [defaultPosX, defaultPoxY]
+              }
               zoom={14}
               minZoom={5}
               maxZoom={18}
               scrollWheelZoom={true}
             >
-              <ChangeView center={[posX, posY]}/>
+              <ChangeView/>
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              {
+                mapMoveList.map((moveInfo) => {
+                  return <Polyline
+                    pathOptions={{
+                      fillColor: 'red',
+                      weight: 10
+                    }}
+                    positions={moveInfo.geolocationList.map((value) => [value.latitude, value.longitude])}
+                  />
+                })
+              }
+              {(nowGeolocation) ?
+                <Circle
+                  center={[nowGeolocation.latitude, nowGeolocation.longitude]}
+                  pathOptions={{fillColor: "blue"}}
+                  radius={40}
+                />
+              : null}
             </MapContainer>
           </>
         :
