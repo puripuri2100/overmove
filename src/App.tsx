@@ -110,6 +110,10 @@ function App() {
     geolocation: [],
   });
 
+  // 記録の開始に関わる変数
+  const [nowTravelId, setNowTravelId] = useState<string | null>(null);
+  const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
+
   const [isDataFetch, setIsDataFetch] = useState<"import" | "export" | "hide">(
     "hide",
   );
@@ -193,6 +197,9 @@ function App() {
           { baseDir: BaseDirectory.AppLocalData },
         );
         setRecordingMoveInfo(JSON.parse(recordingMoveInfoFileText));
+        if (recordingMoveInfo) {
+          setIsRecordMove(true);
+        }
       } else {
         info(`not exists: recordingMoveInfoFilePath`);
         const file = await create(recordingMoveInfoFilePath, {
@@ -324,9 +331,6 @@ function App() {
       setInputNewTravelDescription("");
     }
   }
-
-  const [nowTravelId, setNowTravelId] = useState<string | null>(null);
-  const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
 
   useEffect(() => {
     const now = new Date();
