@@ -25,3 +25,4 @@ dist-ssr
 
 gen
 env.ps1
+test_data

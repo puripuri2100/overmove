@@ -52,6 +52,11 @@ type move = {
   end: Date
 }
 
+type nowRecordingMoveInfo = {
+  id: string,
+  start: Date,
+}
+
 // 位置
 type geolocation = {
   timestamp: Date,
@@ -71,6 +76,7 @@ type geolocation = {
 
 type allDataType = {
   version: string,
+  nowRecordingMoveInfo: nowRecordingMoveInfo | null,
   travel: travel[],
   move: move[]
   geolocation: geolocation[],
@@ -82,7 +88,7 @@ type mapMoveInfo = {
   geolocationList: geolocation[],
   maxSpeed: number | null,
   averageSpeed: number | null,
-  distanceSum: number,
+  distanceSumMeters: number,
   moveSeconds: number,
 }
 
@@ -101,8 +107,12 @@ function App() {
   const [moveList, setMoveList] = useState<move[]>([]);
   const [geolocationList, setGeolocationList] = useState<geolocation[]>([]);
 
+  // 移動を開始した時の情報の記録
+  const [recordingMoveInfo, setRecordingMoveInfo] = useState<nowRecordingMoveInfo | null>(null);
+
   const [allData, setAllData] = useState<allDataType>({
     version,
+    nowRecordingMoveInfo: null,
     travel: [],
     move: [],
     geolocation: []
@@ -114,6 +124,7 @@ function App() {
   const travelListFilePath = "travelList.json";
   const moveListFilePath = "moveList.json";
   const geolocationListFilePath = "geolocationList.json";
+  const recordingMoveInfoFilePath = "recordingMoveInfo.json";
 
   useEffect(() => {
     (async() => {
@@ -157,6 +168,19 @@ function App() {
         await file.close();
         info("create geolocationList");
       }
+
+      const existsRecordingMoveInfoFile = await exists(recordingMoveInfoFilePath, {baseDir: BaseDirectory.AppLocalData});
+      if (existsRecordingMoveInfoFile) {
+        info(`exists: recordingMoveInfoFilePath`);
+        const recordingMoveInfoFileText = await readTextFile(recordingMoveInfoFilePath, {baseDir: BaseDirectory.AppLocalData});
+        setRecordingMoveInfo(JSON.parse(recordingMoveInfoFileText));
+      } else {
+        info(`not exists: recordingMoveInfoFilePath`);
+        const file = await create(recordingMoveInfoFilePath, {baseDir: BaseDirectory.AppLocalData});
+        await file.write(new TextEncoder().encode("null"));
+        await file.close();
+        info("create recordingMoveInfo");
+      }
     })();
   }, [])
 
@@ -177,8 +201,8 @@ function App() {
 
   useEffect(() => {
     (async() => {
-      const isTravelListFileOnAppLocalDataDir = await exists(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
-      info(`isTravelListFileOnAppLocalDataDir: ${isTravelListFileOnAppLocalDataDir}`);
+      const isMoveListFileOnAppLocalDataDir = await exists(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      info(`isMoveListFileOnAppLocalDataDir: ${isMoveListFileOnAppLocalDataDir}`);
 
       const nowText = await readTextFile(moveListFilePath, {baseDir: BaseDirectory.AppLocalData});
       const data: move[] = JSON.parse(nowText);
@@ -191,8 +215,8 @@ function App() {
 
   useEffect(() => {
     (async() => {
-      const isTravelListFileOnAppLocalDataDir = await exists(travelListFilePath, {baseDir: BaseDirectory.AppLocalData});
-      info(`isTravelListFileOnAppLocalDataDir: ${isTravelListFileOnAppLocalDataDir}`);
+      const isGeolocationListFileOnAppLocalDataDir = await exists(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
+      info(`isGelocationListFileOnAppLocalDataDir: ${isGeolocationListFileOnAppLocalDataDir}`);
 
       const nowText = await readTextFile(geolocationListFilePath, {baseDir: BaseDirectory.AppLocalData});
       const data: move[] = JSON.parse(nowText);
@@ -203,15 +227,28 @@ function App() {
     })()
   }, [geolocationList]);
 
+  useEffect(() => {
+    (async() => {
+      const isrecordingMoveInfoFileOnAppLocalDataDir = await exists(recordingMoveInfoFilePath, {baseDir: BaseDirectory.AppLocalData});
+      info(`recordingMoveInfoFileOnAppLocalDataDir: ${isrecordingMoveInfoFileOnAppLocalDataDir}`);
+
+      if (isrecordingMoveInfoFileOnAppLocalDataDir) {
+        await writeTextFile(recordingMoveInfoFilePath, JSON.stringify(recordingMoveInfo), {baseDir: BaseDirectory.AppLocalData});
+        info("write recordingMoveInfo");
+      }
+    })()
+  }, [recordingMoveInfo]);
+
 
   useEffect(() => {
     setAllData({
       version,
+      nowRecordingMoveInfo: recordingMoveInfo,
       travel: travelList,
       move: moveList,
       geolocation: geolocationList
     })
-  }, [travelList, moveList, geolocationList])
+  }, [travelList, moveList, geolocationList, recordingMoveInfo])
 
 
   const [inputNewTravelName, setInputNewTravelName] = useState("");
@@ -233,26 +270,25 @@ function App() {
   }
 
   const [nowTravelId, setNowTravelId] = useState<string | null>(null);
-  const [nowMoveStartDate, setNowMoveStartDate] = useState<Date | null>(null);
   const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
 
   useEffect(() => {
     const now = new Date();
     if (isRecordMove && nowTravelId) {
       // 移動の記録の開始
-      setNowMoveStartDate(now);
-    }
-    if (!isRecordMove && nowTravelId && nowMoveStartDate) {
-      // 移動の記録の終了
       const newMoveId = crypto.randomUUID().toString();
+      setRecordingMoveInfo({start: now, id: newMoveId});
+    }
+    if (!isRecordMove && nowTravelId && recordingMoveInfo) {
+      // 移動の記録の終了
       const move: move = {
-        id: newMoveId,
-        start: nowMoveStartDate,
+        id: recordingMoveInfo.id,
+        start: recordingMoveInfo.start,
         end: now,
       }
       setMoveList([...moveList, move]);
-      setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, newMoveId]} : value));
-      setNowMoveStartDate(null);
+      setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, recordingMoveInfo.id]} : value));
+      setRecordingMoveInfo(null);
     }
   }, [isRecordMove])
 
@@ -355,7 +391,7 @@ function App() {
         let maxSpeed: number | null = null;
         let tempX = 0;
         let tempY = 0;
-        let distanceSum = 0;
+        let distanceSumMeters = 0;
         for (let i = 0; i < lst.length; i++) {
           const value = lst[i];
           if (value.speed) {
@@ -368,25 +404,30 @@ function App() {
             }
           }
 
+          if (i == 0) {
+            tempX = value.latitude;
+            tempY = value.longitude;
+          }
           if (i != 0) {
             const x = value.latitude;
             const y = value.longitude;
             const d = distance(
               point([y, x]),
               point([tempY, tempX]),
-              {units: "kilometers"}
+              {units: "meters"}
             )
-            distanceSum += d;
+            distanceSumMeters += d;
             tempX = x;
             tempY = y;
           }
         }
+        info(`distnceSum: ${distanceSumMeters}`);
         const data: mapMoveInfo = {
           moveInfo,
           geolocationList: lst,
           maxSpeed,
           averageSpeed: null,
-          distanceSum,
+          distanceSumMeters,
           moveSeconds: differenceInSeconds(moveInfo.end, moveInfo.start)
         };
         return data
@@ -490,8 +531,8 @@ function App() {
               <Switch onChange={(checked) => {setIsRecordMove(checked)}} disabled={!isRecordMove} checked={isRecordMove}/>
             </p>
             <div>
-              <button onClick={() => setIsDataFetch("export")}>現在のデータを表示する</button>
-              <button onClick={() => setIsDataFetch("import")}>データを取り込む</button>
+              <button onClick={() => setIsDataFetch("export")} disabled={isRecordMove}>現在のデータを表示する</button>
+              <button onClick={() => setIsDataFetch("import")} disabled={isRecordMove}>データを取り込む</button>
               <button onClick={() => setIsDataFetch("hide")}>隠す</button>
             </div>
             {
@@ -506,14 +547,23 @@ function App() {
                 isDataFetch == "import" ?
                   <div>
                     <div>
-                      <button onClick={() => {
-                        const importData: allDataType = JSON.parse(importDataText);
-                        if (importData) {
-                          setTravelList(importData.travel);
-                          setMoveList(importData.move);
-                          setGeolocationList(importData.geolocation);
-                        }
-                      }}>
+                      <button
+                        onClick={async () => {
+                          const importData: allDataType = JSON.parse(importDataText);
+                          if (importData) {
+                            setTravelList(importData.travel);
+                            await writeTextFile(travelListFilePath, JSON.stringify(importData.travel), {baseDir: BaseDirectory.AppLocalData});
+                            info("write travelList");
+                            setMoveList(importData.move);
+                            await writeTextFile(moveListFilePath, JSON.stringify(importData.move), {baseDir: BaseDirectory.AppLocalData});
+                            info("write moveList");
+                            setGeolocationList(importData.geolocation);
+                            await writeTextFile(geolocationListFilePath, JSON.stringify(importData.geolocation), {baseDir: BaseDirectory.AppLocalData});
+                            info("write geolocationList");
+                          }
+                        }}
+                        disabled={isRecordMove}
+                      >
                         取り込む
                       </button>
                     </div>
@@ -547,7 +597,7 @@ function App() {
             <p>map id: {showMapId}</p>
             <p>{showMapId != "here" ? travelList.find((value) => value.id == showMapId)?.description : null}</p>
             {showMapId != "here" ? <p>
-              総移動距離: {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.distanceSum}, 0) / 100) / 10}km <br />
+              総移動距離: {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.distanceSumMeters}, 0) / 100) / 10}km <br />
               総移動時間:
                       {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.moveSeconds}, 0) / 3600)}時間
                       {Math.round(mapMoveList.reduce(function(sum, value) {return sum + value.moveSeconds}, 0)  / 60) % 60}分
@@ -623,8 +673,8 @@ function App() {
                       {Math.round(showMoveInfo.moveSeconds / 60) % 60}分
                       {(showMoveInfo.moveSeconds % 60)}秒<br />
                     </>
-                    <>移動距離：{Math.round(showMoveInfo.distanceSum / 100) / 10}km<br /></>
-                    <>平均速度：{Math.round((showMoveInfo.distanceSum / (showMoveInfo.moveSeconds / 3600)) / 100) / 10}km/h</>
+                    <>移動距離：{Math.round(showMoveInfo.distanceSumMeters / 100) / 10}km<br /></>
+                    <>平均速度：{Math.round((showMoveInfo.distanceSumMeters / showMoveInfo.moveSeconds) * 36) / 10}km/h</>
                   </Popup>
                 : null
               }
@@ -662,16 +712,15 @@ function App() {
             onChange={(event) => {
               // 旅行記録を変えるときには一旦位置記録を停止する
               const now = new Date();
-              if (nowMoveStartDate && nowTravelId) {
-                const newMoveId = crypto.randomUUID().toString();
+              if (recordingMoveInfo && nowTravelId) {
                 const move: move = {
-                  id: newMoveId,
-                  start: nowMoveStartDate,
+                  id: recordingMoveInfo.id,
+                  start: recordingMoveInfo.start,
                   end: now,
                 }
                 setMoveList([...moveList, move]);
-                setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, newMoveId]} : value));
-                setNowMoveStartDate(null);
+                setTravelList(travelList.map((value) => value.id == nowTravelId ? {... value, move_id_list: [... value.move_id_list, recordingMoveInfo.id]} : value));
+                setRecordingMoveInfo(null);
               }
               setIsRecordMove(false);
 
