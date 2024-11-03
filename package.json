@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "fmt": "prettier --write src"
   },
   "dependencies": {
     "@tauri-apps/api": ">=2.0.0",
@@ -35,6 +36,7 @@
     "@types/react-leaflet": "^3.0.0",
     "@types/react-modal": "^3.16.3",
     "@vitejs/plugin-react": "^4.2.1",
+    "prettier": "^3.3.3",
     "typescript": "^5.2.2",
     "vite": "^5.3.1"
   }
