@@ -549,7 +549,7 @@ function App() {
     }
     if (isPlayMove) {
       const nowMap = useMap();
-      if (showMapId != "here" && moveList.length > 0) {
+      if (showMapId != "here" && mapMoveList.length > 0) {
         if (mapMoveList[0].geolocationList.length > 0) {
           nowMap.setView([
             mapMoveList[0].geolocationList[0].latitude,
