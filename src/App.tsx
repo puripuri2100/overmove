@@ -451,7 +451,7 @@ function App() {
 
   // 選択された旅行に含まれる移動のリストを作成する
   useEffect(() => {
-    const targetTravelId = showMapId == "here" ? nowTravelId : showMapId;
+    const targetTravelId = isRecordMove ? nowTravelId : showMapId;
     const travelInfo = travelList.find((value) => value.id == targetTravelId);
     if (travelInfo) {
       const targetMoveList = moveList.filter((value) =>
@@ -508,7 +508,66 @@ function App() {
     } else {
       setMapMoveList([]);
     }
-  }, [showMapId]);
+  }, [showMapId, isRecordMove]);
+
+  // 今現在移動記録中の情報
+  const [nowMoveMapInfo, setNowMoveMapInfo] = useState<mapMoveInfo | null>(
+    null,
+  );
+  useEffect(() => {
+    if (isRecordMove && nowTravelId && recordingMoveInfo) {
+      const now = new Date();
+      const lst = geolocationList.filter(
+        (value) => recordingMoveInfo.start <= value.timestamp,
+      );
+      let maxSpeed: number | null = null;
+      let tempX = 0;
+      let tempY = 0;
+      let distanceSumMeters = 0;
+      for (let i = 0; i < lst.length; i++) {
+        const value = lst[i];
+        if (value.speed) {
+          if (maxSpeed) {
+            if (maxSpeed < value.speed) {
+              maxSpeed = value.speed;
+            }
+          } else {
+            maxSpeed = value.speed;
+          }
+        }
+
+        if (i == 0) {
+          tempX = value.latitude;
+          tempY = value.longitude;
+        }
+        if (i != 0) {
+          const x = value.latitude;
+          const y = value.longitude;
+          const d = distance(point([y, x]), point([tempY, tempX]), {
+            units: "meters",
+          });
+          distanceSumMeters += d;
+          tempX = x;
+          tempY = y;
+        }
+      }
+      const data: mapMoveInfo = {
+        moveInfo: {
+          start: recordingMoveInfo.start,
+          end: now,
+          id: recordingMoveInfo.id,
+        },
+        geolocationList: lst,
+        maxSpeed,
+        averageSpeed: null,
+        distanceSumMeters,
+        moveSeconds: differenceInSeconds(now, recordingMoveInfo.start),
+      };
+      setNowMoveMapInfo(data);
+    } else {
+      setNowMoveMapInfo(null);
+    }
+  }, [geolocationList]);
 
   // 情報を見たい移動のIDとクリックした位置
   const [showMoveInfo, setShowMoveInfo] = useState<mapMoveInfo | null>(null);
@@ -791,6 +850,7 @@ function App() {
                   ])}
                   eventHandlers={{
                     click: (event) => {
+                      setIsNowPosPopup(false);
                       setShowMoveInfo(moveInfo);
                       setShowMoveInfoClickPosX(event.latlng.lat);
                       setShowMoveInfoClickPosY(event.latlng.lng);
@@ -799,6 +859,26 @@ function App() {
                 />
               );
             })}
+            {nowMoveMapInfo ? (
+              <Polyline
+                pathOptions={{
+                  fillColor: "red",
+                  weight: 10,
+                }}
+                positions={nowMoveMapInfo.geolocationList.map((value) => [
+                  value.latitude,
+                  value.longitude,
+                ])}
+                eventHandlers={{
+                  click: (event) => {
+                    setIsNowPosPopup(false);
+                    setShowMoveInfo(nowMoveMapInfo);
+                    setShowMoveInfoClickPosX(event.latlng.lat);
+                    setShowMoveInfoClickPosY(event.latlng.lng);
+                  },
+                }}
+              />
+            ) : null}
             {showMoveInfo ? (
               <Popup position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}>
                 <>
@@ -835,7 +915,7 @@ function App() {
                 radius={40}
                 eventHandlers={{
                   click: () => {
-                    setIsNowPosPopup(!isNowPosPopup);
+                    setIsNowPosPopup(true);
                   },
                 }}
               />
@@ -851,13 +931,15 @@ function App() {
               >
                 {nowGeolocation.speed ? (
                   <>
-                    速度：{convertSpeed(nowGeolocation.speed)}km/h
+                    速度：
+                    {Math.round(convertSpeed(nowGeolocation.speed) * 10) / 10}
+                    km/h
                     <br />
                   </>
                 ) : null}
                 {nowGeolocation.altitude ? (
                   <>
-                    高度：{nowGeolocation.altitude}
+                    高度：{Math.round(nowGeolocation.altitude * 10) / 10}m
                     <br />
                   </>
                 ) : null}
