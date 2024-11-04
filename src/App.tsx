@@ -15,7 +15,9 @@ import {
 import Switch from "react-switch";
 import { CopyBlock, github } from "react-code-blocks";
 import { differenceInSeconds } from "date-fns";
+// @ts-ignore
 import distance from "@turf/distance";
+// @ts-ignore
 import { point } from "@turf/helpers";
 import L, { Map } from "leaflet";
 import {
@@ -36,23 +38,17 @@ type travel = {
   id: string;
   name: string;
   description: string;
-  move_id_list: string[];
 };
 
 // 位置の集合としての移動
 type move = {
   id: string;
-  start: Date;
-  end: Date;
-};
-
-type nowRecordingMoveInfo = {
-  id: string;
-  start: Date;
+  travel_id: string;
 };
 
 // 位置
 type geolocation = {
+  move_id: string;
   timestamp: Date;
   // 緯度
   latitude: number;
@@ -70,7 +66,6 @@ type geolocation = {
 
 type allDataType = {
   version: string;
-  nowRecordingMoveInfo: nowRecordingMoveInfo | null;
   travel: travel[];
   move: move[];
   geolocation: geolocation[];
@@ -83,6 +78,8 @@ type mapMoveInfo = {
   maxSpeed: number | null;
   averageSpeed: number | null;
   distanceSumMeters: number;
+  startDate: Date | null;
+  endDate: Date | null;
   moveSeconds: number;
 };
 
@@ -90,7 +87,7 @@ type mapMoveInfo = {
 type mode = "recordMove" | "createTravel" | "showMap" | "fetchData";
 
 function App() {
-  const version = "0.1.0";
+  const version = "0.2.0";
 
   const [nowMode, setNowMode] = useState<mode>("recordMove");
 
@@ -98,13 +95,8 @@ function App() {
   const [moveList, setMoveList] = useState<move[]>([]);
   const [geolocationList, setGeolocationList] = useState<geolocation[]>([]);
 
-  // 移動を開始した時の情報の記録
-  const [recordingMoveInfo, setRecordingMoveInfo] =
-    useState<nowRecordingMoveInfo | null>(null);
-
   const [allData, setAllData] = useState<allDataType>({
     version,
-    nowRecordingMoveInfo: null,
     travel: [],
     move: [],
     geolocation: [],
@@ -112,6 +104,7 @@ function App() {
 
   // 記録の開始に関わる変数
   const [nowTravelId, setNowTravelId] = useState<string | null>(null);
+  const [nowMoveId, setNowMoveId] = useState<string | null>(null);
   const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
 
   const [isDataFetch, setIsDataFetch] = useState<"import" | "export" | "hide">(
@@ -119,10 +112,9 @@ function App() {
   );
   const [importDataText, setImportDataText] = useState("");
 
-  const travelListFilePath = "travelList.json";
-  const moveListFilePath = "moveList.json";
-  const geolocationListFilePath = "geolocationList.json";
-  const recordingMoveInfoFilePath = "recordingMoveInfo.json";
+  const travelListFilePath = `travelList.${version}.json`;
+  const moveListFilePath = `moveList.${version}.json`;
+  const geolocationListFilePath = `geolocationList.${version}.json`;
 
   useEffect(() => {
     (async () => {
@@ -184,30 +176,6 @@ function App() {
         await file.write(new TextEncoder().encode("[]"));
         await file.close();
         info("create geolocationList");
-      }
-
-      const existsRecordingMoveInfoFile = await exists(
-        recordingMoveInfoFilePath,
-        { baseDir: BaseDirectory.AppLocalData },
-      );
-      if (existsRecordingMoveInfoFile) {
-        info(`exists: recordingMoveInfoFilePath`);
-        const recordingMoveInfoFileText = await readTextFile(
-          recordingMoveInfoFilePath,
-          { baseDir: BaseDirectory.AppLocalData },
-        );
-        setRecordingMoveInfo(JSON.parse(recordingMoveInfoFileText));
-        if (recordingMoveInfo) {
-          setIsRecordMove(true);
-        }
-      } else {
-        info(`not exists: recordingMoveInfoFilePath`);
-        const file = await create(recordingMoveInfoFilePath, {
-          baseDir: BaseDirectory.AppLocalData,
-        });
-        await file.write(new TextEncoder().encode("null"));
-        await file.close();
-        info("create recordingMoveInfo");
       }
     })();
   }, []);
@@ -283,35 +251,13 @@ function App() {
   }, [geolocationList]);
 
   useEffect(() => {
-    (async () => {
-      const isrecordingMoveInfoFileOnAppLocalDataDir = await exists(
-        recordingMoveInfoFilePath,
-        { baseDir: BaseDirectory.AppLocalData },
-      );
-      info(
-        `recordingMoveInfoFileOnAppLocalDataDir: ${isrecordingMoveInfoFileOnAppLocalDataDir}`,
-      );
-
-      if (isrecordingMoveInfoFileOnAppLocalDataDir) {
-        await writeTextFile(
-          recordingMoveInfoFilePath,
-          JSON.stringify(recordingMoveInfo),
-          { baseDir: BaseDirectory.AppLocalData },
-        );
-        info("write recordingMoveInfo");
-      }
-    })();
-  }, [recordingMoveInfo]);
-
-  useEffect(() => {
     setAllData({
       version,
-      nowRecordingMoveInfo: recordingMoveInfo,
       travel: travelList,
       move: moveList,
       geolocation: geolocationList,
     });
-  }, [travelList, moveList, geolocationList, recordingMoveInfo]);
+  }, [travelList, moveList, geolocationList]);
 
   const [inputNewTravelName, setInputNewTravelName] = useState("");
   const [inputNewTravelDescription, setInputNewTravelDescription] =
@@ -333,31 +279,16 @@ function App() {
   }
 
   useEffect(() => {
-    const now = new Date();
     if (isRecordMove && nowTravelId) {
       // 移動の記録の開始
       const newMoveId = crypto.randomUUID().toString();
-      setRecordingMoveInfo({ start: now, id: newMoveId });
-    }
-    if (!isRecordMove && nowTravelId && recordingMoveInfo) {
-      // 移動の記録の終了
-      const move: move = {
-        id: recordingMoveInfo.id,
-        start: recordingMoveInfo.start,
-        end: now,
-      };
+      setNowMoveId(newMoveId);
+      const move = { id: newMoveId, travel_id: nowTravelId };
       setMoveList([...moveList, move]);
-      setTravelList(
-        travelList.map((value) =>
-          value.id == nowTravelId
-            ? {
-                ...value,
-                move_id_list: [...value.move_id_list, recordingMoveInfo.id],
-              }
-            : value,
-        ),
-      );
-      setRecordingMoveInfo(null);
+    }
+    if (!isRecordMove && nowTravelId && nowMoveId) {
+      // 移動の記録の終了
+      setNowMoveId(null);
     }
   }, [isRecordMove]);
 
@@ -381,7 +312,9 @@ function App() {
           (pos) => {
             if (pos) {
               info("watchPosition success");
+              const move_id = nowMoveId ? nowMoveId : "none";
               const geo: geolocation = {
+                move_id,
                 timestamp: new Date(pos.timestamp),
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
@@ -454,18 +387,17 @@ function App() {
     const targetTravelId = isRecordMove ? nowTravelId : showMapId;
     const travelInfo = travelList.find((value) => value.id == targetTravelId);
     if (travelInfo) {
-      const targetMoveList = moveList.filter((value) =>
-        travelInfo.move_id_list.includes(value.id),
+      const targetMoveList = moveList.filter(
+        (value) => value.travel_id == targetTravelId,
       );
       const targetGeoList = targetMoveList.map((moveInfo) => {
-        const lst = geolocationList.filter(
-          (geo) =>
-            moveInfo.start <= geo.timestamp && geo.timestamp <= moveInfo.end,
-        );
+        const lst = geolocationList.filter((geo) => geo.move_id == moveInfo.id);
         let maxSpeed: number | null = null;
         let tempX = 0;
         let tempY = 0;
         let distanceSumMeters = 0;
+        let startDate: Date | null = null;
+        let endDate: Date | null = null;
         for (let i = 0; i < lst.length; i++) {
           const value = lst[i];
           if (value.speed) {
@@ -475,6 +407,30 @@ function App() {
               }
             } else {
               maxSpeed = value.speed;
+            }
+          }
+
+          if (startDate) {
+            if (value.timestamp) {
+              if (value.timestamp < startDate) {
+                startDate = value.timestamp;
+              }
+            }
+          } else {
+            if (value.timestamp) {
+              startDate = value.timestamp;
+            }
+          }
+
+          if (endDate) {
+            if (value.timestamp) {
+              if (value.timestamp > endDate) {
+                endDate = value.timestamp;
+              }
+            }
+          } else {
+            if (value.timestamp) {
+              endDate = value.timestamp;
             }
           }
 
@@ -494,13 +450,20 @@ function App() {
           }
         }
         info(`distnceSum: ${distanceSumMeters}`);
+        const moveSeconds = startDate
+          ? endDate
+            ? differenceInSeconds(endDate, startDate)
+            : 0
+          : 0;
         const data: mapMoveInfo = {
           moveInfo,
           geolocationList: lst,
           maxSpeed,
           averageSpeed: null,
           distanceSumMeters,
-          moveSeconds: differenceInSeconds(moveInfo.end, moveInfo.start),
+          startDate,
+          endDate,
+          moveSeconds,
         };
         return data;
       });
@@ -515,15 +478,14 @@ function App() {
     null,
   );
   useEffect(() => {
-    if (isRecordMove && nowTravelId && recordingMoveInfo) {
-      const now = new Date();
-      const lst = geolocationList.filter(
-        (value) => recordingMoveInfo.start <= value.timestamp,
-      );
+    if (isRecordMove && nowTravelId && nowMoveId) {
+      const lst = geolocationList.filter((value) => value.move_id == nowMoveId);
       let maxSpeed: number | null = null;
       let tempX = 0;
       let tempY = 0;
       let distanceSumMeters = 0;
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
       for (let i = 0; i < lst.length; i++) {
         const value = lst[i];
         if (value.speed) {
@@ -534,6 +496,22 @@ function App() {
           } else {
             maxSpeed = value.speed;
           }
+        }
+
+        if (startDate) {
+          if (value.timestamp < startDate) {
+            startDate = value.timestamp;
+          }
+        } else {
+          startDate = value.timestamp;
+        }
+
+        if (endDate) {
+          if (value.timestamp > endDate) {
+            endDate = value.timestamp;
+          }
+        } else {
+          endDate = value.timestamp;
         }
 
         if (i == 0) {
@@ -551,17 +529,23 @@ function App() {
           tempY = y;
         }
       }
+      const moveSeconds = startDate
+        ? endDate
+          ? differenceInSeconds(endDate, startDate)
+          : 0
+        : 0;
       const data: mapMoveInfo = {
         moveInfo: {
-          start: recordingMoveInfo.start,
-          end: now,
-          id: recordingMoveInfo.id,
+          id: nowMoveId,
+          travel_id: nowTravelId,
         },
         geolocationList: lst,
         maxSpeed,
         averageSpeed: null,
         distanceSumMeters,
-        moveSeconds: differenceInSeconds(now, recordingMoveInfo.start),
+        startDate,
+        endDate,
+        moveSeconds,
       };
       setNowMoveMapInfo(data);
     } else {
@@ -882,8 +866,8 @@ function App() {
             {showMoveInfo ? (
               <Popup position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}>
                 <>
-                  {showMoveInfo.moveInfo.start.toLocaleString()} から{" "}
-                  {showMoveInfo.moveInfo.end}まで
+                  {showMoveInfo.startDate}から
+                  {showMoveInfo.endDate}まで
                   <br />
                 </>
                 <>
@@ -959,29 +943,7 @@ function App() {
             value={nowTravelId ? nowTravelId : "null"}
             onChange={(event) => {
               // 旅行記録を変えるときには一旦位置記録を停止する
-              const now = new Date();
-              if (recordingMoveInfo && nowTravelId) {
-                const move: move = {
-                  id: recordingMoveInfo.id,
-                  start: recordingMoveInfo.start,
-                  end: now,
-                };
-                setMoveList([...moveList, move]);
-                setTravelList(
-                  travelList.map((value) =>
-                    value.id == nowTravelId
-                      ? {
-                          ...value,
-                          move_id_list: [
-                            ...value.move_id_list,
-                            recordingMoveInfo.id,
-                          ],
-                        }
-                      : value,
-                  ),
-                );
-                setRecordingMoveInfo(null);
-              }
+              setNowMoveId(null);
               setIsRecordMove(false);
 
               event.target.value == "null"
