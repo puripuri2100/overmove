@@ -12,6 +12,7 @@ import {
   exists,
   create,
 } from "@tauri-apps/plugin-fs";
+import { v010Tov020 } from "./convertVersionData";
 import Switch from "react-switch";
 import { CopyBlock, github } from "react-code-blocks";
 import { differenceInSeconds } from "date-fns";
@@ -33,7 +34,7 @@ import "leaflet/dist/leaflet.css";
 import "./App.css";
 
 // 異動の集合としての旅行
-type travel = {
+export type travel = {
   // uuid
   id: string;
   name: string;
@@ -41,13 +42,13 @@ type travel = {
 };
 
 // 位置の集合としての移動
-type move = {
+export type move = {
   id: string;
   travel_id: string;
 };
 
 // 位置
-type geolocation = {
+export type geolocation = {
   move_id: string;
   timestamp: Date;
   // 緯度
@@ -64,7 +65,7 @@ type geolocation = {
   heading: number | null;
 };
 
-type allDataType = {
+export type allDataType = {
   version: string;
   travel: travel[];
   move: move[];
@@ -72,7 +73,7 @@ type allDataType = {
 };
 
 // 地図に表示する移動の情報
-type mapMoveInfo = {
+export type mapMoveInfo = {
   moveInfo: move;
   geolocationList: geolocation[];
   maxSpeed: number | null;
@@ -84,7 +85,7 @@ type mapMoveInfo = {
 };
 
 // モード選択
-type mode = "recordMove" | "createTravel" | "showMap" | "fetchData";
+export type mode = "recordMove" | "createTravel" | "showMap" | "fetchData";
 
 function App() {
   const version = "0.2.0";
@@ -681,7 +682,11 @@ function App() {
               <div>
                 <button
                   onClick={async () => {
-                    const importData: allDataType = JSON.parse(importDataText);
+                    const data = JSON.parse(importDataText);
+                    const importData: allDataType =
+                      data.version == "0.2.0"
+                        ? JSON.parse(importDataText)
+                        : v010Tov020(importDataText);
                     if (importData) {
                       setTravelList(importData.travel);
                       await writeTextFile(
