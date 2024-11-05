@@ -18,19 +18,47 @@
     "fs:default",
     {
       "identifier": "fs:allow-exists",
-      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+      "allow": [
+        {
+          "path": "$APPDATA/*"
+        },
+        {
+          "path": "$APPLOCALDATA/*"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-create",
-      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+      "allow": [
+        {
+          "path": "$APPDATA/*"
+        },
+        {
+          "path": "$APPLOCALDATA/*"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-read",
-      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+      "allow": [
+        {
+          "path": "$APPDATA/*"
+        },
+        {
+          "path": "$APPLOCALDATA/*"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-write",
-      "allow": [{"path": "$APPDATA/*"}, {"path": "$APPLOCALDATA/*"}]
+      "allow": [
+        {
+          "path": "$APPDATA/*"
+        },
+        {
+          "path": "$APPLOCALDATA/*"
+        }
+      ]
     },
     "fs:allow-create",
     "fs:scope-picture-recursive",
@@ -47,6 +75,9 @@
     "fs:allow-applocaldata-meta-recursive",
     "fs:scope-applocaldata-recursive",
     "fs:allow-applocaldata-read-recursive",
-    "fs:allow-applocaldata-write-recursive"
+    "fs:allow-applocaldata-write-recursive",
+    "dialog:default",
+    "dialog:allow-save",
+    "dialog:allow-open"
   ]
 }

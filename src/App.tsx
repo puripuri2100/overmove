@@ -4,7 +4,7 @@ import {
   requestPermissions,
   watchPosition,
 } from "@tauri-apps/plugin-geolocation";
-import { info } from "@tauri-apps/plugin-log";
+import { error, info } from "@tauri-apps/plugin-log";
 import {
   readTextFile,
   writeTextFile,
@@ -12,9 +12,9 @@ import {
   exists,
   create,
 } from "@tauri-apps/plugin-fs";
+import { save, open } from "@tauri-apps/plugin-dialog";
 import { v010Tov020 } from "./convertVersionData";
 import Switch from "react-switch";
-import { CopyBlock, github } from "react-code-blocks";
 import { differenceInSeconds } from "date-fns";
 // @ts-ignore
 import distance from "@turf/distance";
@@ -107,11 +107,6 @@ function App() {
   const [nowTravelId, setNowTravelId] = useState<string | null>(null);
   const [nowMoveId, setNowMoveId] = useState<string | null>(null);
   const [isRecordMove, setIsRecordMove] = useState<boolean>(false);
-
-  const [isDataFetch, setIsDataFetch] = useState<"import" | "export" | "hide">(
-    "hide",
-  );
-  const [importDataText, setImportDataText] = useState("");
 
   const travelListFilePath = `travelList.${version}.json`;
   const moveListFilePath = `moveList.${version}.json`;
@@ -312,7 +307,10 @@ function App() {
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
           (pos) => {
             if (pos) {
-              info("watchPosition success");
+              info(
+                `watchPosition success: (${pos.coords.latitude}, ${pos.coords.longitude}) at ${pos.timestamp}`,
+              );
+              info(`moveId: ${nowMoveId}`);
               const move_id = nowMoveId ? nowMoveId : "none";
               const geo: geolocation = {
                 move_id,
@@ -474,86 +472,6 @@ function App() {
     }
   }, [showMapId, isRecordMove]);
 
-  // 今現在移動記録中の情報
-  const [nowMoveMapInfo, setNowMoveMapInfo] = useState<mapMoveInfo | null>(
-    null,
-  );
-  useEffect(() => {
-    if (isRecordMove && nowTravelId && nowMoveId) {
-      const lst = geolocationList.filter((value) => value.move_id == nowMoveId);
-      let maxSpeed: number | null = null;
-      let tempX = 0;
-      let tempY = 0;
-      let distanceSumMeters = 0;
-      let startDate: Date | null = null;
-      let endDate: Date | null = null;
-      for (let i = 0; i < lst.length; i++) {
-        const value = lst[i];
-        if (value.speed) {
-          if (maxSpeed) {
-            if (maxSpeed < value.speed) {
-              maxSpeed = value.speed;
-            }
-          } else {
-            maxSpeed = value.speed;
-          }
-        }
-
-        if (startDate) {
-          if (value.timestamp < startDate) {
-            startDate = value.timestamp;
-          }
-        } else {
-          startDate = value.timestamp;
-        }
-
-        if (endDate) {
-          if (value.timestamp > endDate) {
-            endDate = value.timestamp;
-          }
-        } else {
-          endDate = value.timestamp;
-        }
-
-        if (i == 0) {
-          tempX = value.latitude;
-          tempY = value.longitude;
-        }
-        if (i != 0) {
-          const x = value.latitude;
-          const y = value.longitude;
-          const d = distance(point([y, x]), point([tempY, tempX]), {
-            units: "meters",
-          });
-          distanceSumMeters += d;
-          tempX = x;
-          tempY = y;
-        }
-      }
-      const moveSeconds = startDate
-        ? endDate
-          ? differenceInSeconds(endDate, startDate)
-          : 0
-        : 0;
-      const data: mapMoveInfo = {
-        moveInfo: {
-          id: nowMoveId,
-          travel_id: nowTravelId,
-        },
-        geolocationList: lst,
-        maxSpeed,
-        averageSpeed: null,
-        distanceSumMeters,
-        startDate,
-        endDate,
-        moveSeconds,
-      };
-      setNowMoveMapInfo(data);
-    } else {
-      setNowMoveMapInfo(null);
-    }
-  }, [geolocationList]);
-
   // 情報を見たい移動のIDとクリックした位置
   const [showMoveInfo, setShowMoveInfo] = useState<mapMoveInfo | null>(null);
   const [showMoveInfoClickPosX, setShowMoveInfoClickPosX] = useState(0);
@@ -613,6 +531,53 @@ function App() {
     return null;
   }
 
+  async function saveData() {
+    const path = await save();
+    if (path) {
+      const fileText = JSON.stringify(allData, null, 2);
+      await writeTextFile(path, fileText);
+      info(`data save: ${path}`);
+    } else {
+      error(`data save failed`);
+    }
+  }
+
+  async function openData() {
+    const path = await open({ multiple: false, directory: false });
+    if (path) {
+      const importDataText = await readTextFile(path);
+      const data = JSON.parse(importDataText);
+      const importData: allDataType =
+        data.version == "0.2.0"
+          ? JSON.parse(importDataText)
+          : v010Tov020(importDataText);
+      if (importData) {
+        setTravelList(importData.travel);
+        await writeTextFile(
+          travelListFilePath,
+          JSON.stringify(importData.travel),
+          { baseDir: BaseDirectory.AppLocalData },
+        );
+        info("write travelList");
+        setMoveList(importData.move);
+        await writeTextFile(moveListFilePath, JSON.stringify(importData.move), {
+          baseDir: BaseDirectory.AppLocalData,
+        });
+        info("write moveList");
+        setGeolocationList(importData.geolocation);
+        await writeTextFile(
+          geolocationListFilePath,
+          JSON.stringify(importData.geolocation),
+          { baseDir: BaseDirectory.AppLocalData },
+        );
+        info("write geolocationList");
+        info("data open success");
+      }
+    } else {
+      error(`data open failed`);
+    }
+  }
+
   return (
     <div className="container">
       <p>
@@ -656,74 +621,13 @@ function App() {
             />
           </p>
           <div>
-            <button
-              onClick={() => setIsDataFetch("export")}
-              disabled={isRecordMove}
-            >
-              現在のデータを表示する
+            <button onClick={saveData} disabled={isRecordMove}>
+              現在のデータを保存する
             </button>
-            <button
-              onClick={() => setIsDataFetch("import")}
-              disabled={isRecordMove}
-            >
+            <button onClick={openData} disabled={isRecordMove}>
               データを取り込む
             </button>
-            <button onClick={() => setIsDataFetch("hide")}>隠す</button>
           </div>
-          {isDataFetch == "export" ? (
-            <CopyBlock
-              text={JSON.stringify(allData, null, 2)}
-              language="json"
-              theme={github}
-              showLineNumbers={false}
-            />
-          ) : isDataFetch == "import" ? (
-            <div>
-              <div>
-                <button
-                  onClick={async () => {
-                    const data = JSON.parse(importDataText);
-                    const importData: allDataType =
-                      data.version == "0.2.0"
-                        ? JSON.parse(importDataText)
-                        : v010Tov020(importDataText);
-                    if (importData) {
-                      setTravelList(importData.travel);
-                      await writeTextFile(
-                        travelListFilePath,
-                        JSON.stringify(importData.travel),
-                        { baseDir: BaseDirectory.AppLocalData },
-                      );
-                      info("write travelList");
-                      setMoveList(importData.move);
-                      await writeTextFile(
-                        moveListFilePath,
-                        JSON.stringify(importData.move),
-                        { baseDir: BaseDirectory.AppLocalData },
-                      );
-                      info("write moveList");
-                      setGeolocationList(importData.geolocation);
-                      await writeTextFile(
-                        geolocationListFilePath,
-                        JSON.stringify(importData.geolocation),
-                        { baseDir: BaseDirectory.AppLocalData },
-                      );
-                      info("write geolocationList");
-                    }
-                  }}
-                  disabled={isRecordMove}
-                >
-                  取り込む
-                </button>
-              </div>
-              <textarea
-                value={importDataText}
-                name="importDataTextEdit"
-                id="importDataTextEdit"
-                onChange={(event) => setImportDataText(event.target.value)}
-              />
-            </div>
-          ) : null}
         </>
       ) : nowMode == "showMap" ? (
         <>
@@ -830,7 +734,7 @@ function App() {
               return (
                 <Polyline
                   pathOptions={{
-                    fillColor: "red",
+                    color: "blue",
                     weight: 10,
                   }}
                   positions={moveInfo.geolocationList.map((value) => [
@@ -848,26 +752,6 @@ function App() {
                 />
               );
             })}
-            {nowMoveMapInfo ? (
-              <Polyline
-                pathOptions={{
-                  fillColor: "red",
-                  weight: 10,
-                }}
-                positions={nowMoveMapInfo.geolocationList.map((value) => [
-                  value.latitude,
-                  value.longitude,
-                ])}
-                eventHandlers={{
-                  click: (event) => {
-                    setIsNowPosPopup(false);
-                    setShowMoveInfo(nowMoveMapInfo);
-                    setShowMoveInfoClickPosX(event.latlng.lat);
-                    setShowMoveInfoClickPosY(event.latlng.lng);
-                  },
-                }}
-              />
-            ) : null}
             {showMoveInfo ? (
               <Popup position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}>
                 <>
