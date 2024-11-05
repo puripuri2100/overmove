@@ -358,9 +358,6 @@ function App() {
   // 移動の記録を再生するかどうかのフラグ
   const [isPlayMove, setIsPlayMove] = useState<boolean>(false);
 
-  // 現在位置に移動速度などを表示するかどうかのフラグ
-  const [isNowPosPopup, setIsNowPosPopup] = useState(false);
-
   // m/s -> km/h
   function convertSpeed(speed: number): number {
     return speed * 3.6;
@@ -478,7 +475,7 @@ function App() {
     } else {
       setMapMoveList([]);
     }
-  }, [showMapId, isRecordMove]);
+  }, [showMapId, isRecordMove, geolocationList]);
 
   // 情報を見たい移動のIDとクリックした位置
   const [showMoveInfo, setShowMoveInfo] = useState<mapMoveInfo | null>(null);
@@ -720,6 +717,30 @@ function App() {
               </button>
             )}
           </div>
+
+          <div>
+            {nowGeolocation ? (
+              <>
+                {nowGeolocation.speed ? (
+                  <>
+                    速度：
+                    {Math.round(convertSpeed(nowGeolocation.speed) * 10) / 10}
+                    km/h
+                    <br />
+                  </>
+                ) : null}
+                {nowGeolocation.altitude ? (
+                  <>
+                    高度：{Math.round(nowGeolocation.altitude * 10) / 10}m
+                    <br />
+                  </>
+                ) : null}
+                {nowGeolocation.heading ? (
+                  <>方角：{headingValueToDirection(nowGeolocation.heading)}</>
+                ) : null}
+              </>
+            ) : null}
+          </div>
           <p></p>
           <MapContainer
             style={{ width: "75vw", height: "60vh" }}
@@ -751,7 +772,6 @@ function App() {
                   ])}
                   eventHandlers={{
                     click: (event) => {
-                      setIsNowPosPopup(false);
                       setShowMoveInfo(moveInfo);
                       setShowMoveInfoClickPosX(event.latlng.lat);
                       setShowMoveInfoClickPosY(event.latlng.lng);
@@ -794,40 +814,7 @@ function App() {
                 center={[nowGeolocation.latitude, nowGeolocation.longitude]}
                 pathOptions={{ fillColor: "blue" }}
                 radius={40}
-                eventHandlers={{
-                  click: () => {
-                    setIsNowPosPopup(true);
-                  },
-                }}
               />
-            ) : null}
-            {nowGeolocation && isNowPosPopup ? (
-              <Popup
-                position={[nowGeolocation.latitude, nowGeolocation.longitude]}
-                eventHandlers={{
-                  click: () => {
-                    setIsNowPosPopup(false);
-                  },
-                }}
-              >
-                {nowGeolocation.speed ? (
-                  <>
-                    速度：
-                    {Math.round(convertSpeed(nowGeolocation.speed) * 10) / 10}
-                    km/h
-                    <br />
-                  </>
-                ) : null}
-                {nowGeolocation.altitude ? (
-                  <>
-                    高度：{Math.round(nowGeolocation.altitude * 10) / 10}m
-                    <br />
-                  </>
-                ) : null}
-                {nowGeolocation.heading ? (
-                  <>方角：{headingValueToDirection(nowGeolocation.heading)}</>
-                ) : null}
-              </Popup>
             ) : null}
           </MapContainer>
         </>
