@@ -3,6 +3,7 @@ import {
   checkPermissions,
   requestPermissions,
   watchPosition,
+  Position,
 } from "@tauri-apps/plugin-geolocation";
 import { error, info } from "@tauri-apps/plugin-log";
 import {
@@ -288,6 +289,7 @@ function App() {
     }
   }, [isRecordMove]);
 
+  const [nowPos, setNowPos] = useState<Position | null>(null);
   const [nowGeolocation, setNowGeolocation] = useState<geolocation | null>(
     null,
   );
@@ -310,19 +312,7 @@ function App() {
               info(
                 `watchPosition success: (${pos.coords.latitude}, ${pos.coords.longitude}) at ${pos.timestamp}`,
               );
-              info(`moveId: ${nowMoveId}`);
-              const move_id = nowMoveId ? nowMoveId : "none";
-              const geo: geolocation = {
-                move_id,
-                timestamp: new Date(pos.timestamp),
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-                altitude: pos.coords.altitude,
-                altitudeAccuracy: pos.coords.altitudeAccuracy,
-                speed: pos.coords.speed,
-                heading: pos.coords.heading,
-              };
-              setNowGeolocation(geo);
+              setNowPos(pos);
             } else {
               info("error: watchPosition failed");
             }
@@ -331,6 +321,24 @@ function App() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (nowPos) {
+      info(`moveId: ${nowMoveId}`);
+      const move_id = nowMoveId ? nowMoveId : "none";
+      const geo: geolocation = {
+        move_id,
+        timestamp: new Date(nowPos.timestamp),
+        latitude: nowPos.coords.latitude,
+        longitude: nowPos.coords.longitude,
+        altitude: nowPos.coords.altitude,
+        altitudeAccuracy: nowPos.coords.altitudeAccuracy,
+        speed: nowPos.coords.speed,
+        heading: nowPos.coords.heading,
+      };
+      setNowGeolocation(geo);
+    }
+  }, [nowPos]);
 
   useEffect(() => {
     if (nowGeolocation && isRecordMove) {
