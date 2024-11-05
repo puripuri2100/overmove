@@ -692,12 +692,67 @@ function App() {
               秒
             </p>
           ) : null}
-          <p>
-            現在位置：
-            {nowGeolocation
-              ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})`
-              : "null"}
-          </p>
+
+          {isRecordMove && nowMoveId ? (
+            <div>
+              {mapMoveList.map((value) => {
+                if (value.moveInfo.id == nowMoveId) {
+                  <>
+                    {value.startDate ? (
+                      <p>移動開始：{value.startDate.toLocaleDateString()}</p>
+                    ) : null}
+                    <p>
+                      移動時間：
+                      {Math.round(value.moveSeconds / 3600)}時間
+                      {Math.round(value.moveSeconds / 60) % 60}分
+                      {value.moveSeconds % 60}秒<br />
+                    </p>
+                    <p>
+                      移動距離：{Math.round(value.distanceSumMeters / 100) / 10}
+                      km
+                    </p>
+                    <p>
+                      平均速度：
+                      {Math.round(
+                        (value.distanceSumMeters / value.moveSeconds) * 36,
+                      ) / 10}
+                      km/h
+                    </p>
+                  </>;
+                  return null;
+                } else {
+                  return null;
+                }
+              })}
+            </div>
+          ) : null}
+
+          <div>
+            <p>
+              現在位置：
+              {nowGeolocation
+                ? `(${nowGeolocation.latitude}, ${nowGeolocation.longitude})`
+                : "null"}
+            </p>
+            {nowGeolocation ? (
+              <>
+                {nowGeolocation.speed ? (
+                  <p>
+                    速度：
+                    {Math.round(convertSpeed(nowGeolocation.speed) * 10) / 10}
+                    km/h
+                  </p>
+                ) : null}
+                {nowGeolocation.altitude ? (
+                  <p>高度：{Math.round(nowGeolocation.altitude * 10) / 10}m</p>
+                ) : null}
+                {nowGeolocation.heading ? (
+                  <p>方角：{headingValueToDirection(nowGeolocation.heading)}</p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+
           <div>
             {showMapId == "here" ? (
               <button
@@ -716,30 +771,6 @@ function App() {
                 移動の記録を再生する
               </button>
             )}
-          </div>
-
-          <div>
-            {nowGeolocation ? (
-              <>
-                {nowGeolocation.speed ? (
-                  <>
-                    速度：
-                    {Math.round(convertSpeed(nowGeolocation.speed) * 10) / 10}
-                    km/h
-                    <br />
-                  </>
-                ) : null}
-                {nowGeolocation.altitude ? (
-                  <>
-                    高度：{Math.round(nowGeolocation.altitude * 10) / 10}m
-                    <br />
-                  </>
-                ) : null}
-                {nowGeolocation.heading ? (
-                  <>方角：{headingValueToDirection(nowGeolocation.heading)}</>
-                ) : null}
-              </>
-            ) : null}
           </div>
           <p></p>
           <MapContainer
@@ -772,15 +803,20 @@ function App() {
                   ])}
                   eventHandlers={{
                     click: (event) => {
-                      setShowMoveInfo(moveInfo);
-                      setShowMoveInfoClickPosX(event.latlng.lat);
-                      setShowMoveInfoClickPosY(event.latlng.lng);
+                      if (!isRecordMove) {
+                        setShowMoveInfo(moveInfo);
+                        setShowMoveInfoClickPosX(event.latlng.lat);
+                        setShowMoveInfoClickPosY(event.latlng.lng);
+                      }
                     },
                   }}
                 />
               );
             })}
-            {showMoveInfo ? (
+            {showMoveInfo &&
+            showMoveInfo.startDate &&
+            showMoveInfo.endDate &&
+            showMoveInfo.moveSeconds != 0 ? (
               <Popup position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}>
                 <>
                   {showMoveInfo.startDate}から
