@@ -813,7 +813,8 @@ function App() {
                 />
               );
             })}
-            {showMoveInfo &&
+            {!isRecordMove &&
+            showMoveInfo &&
             showMoveInfo.startDate &&
             showMoveInfo.endDate &&
             showMoveInfo.moveSeconds != 0 ? (
