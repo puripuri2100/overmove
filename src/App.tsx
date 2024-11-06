@@ -21,7 +21,7 @@ import { differenceInSeconds } from "date-fns";
 import distance from "@turf/distance";
 // @ts-ignore
 import { point } from "@turf/helpers";
-import L, { Map } from "leaflet";
+import { formatToTimeZone } from "date-fns-timezone";
 import {
   MapContainer,
   TileLayer,
@@ -30,7 +30,6 @@ import {
   Circle,
   Popup,
 } from "react-leaflet";
-import "leaflet.offline";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 
@@ -90,6 +89,9 @@ export type mode = "recordMove" | "createTravel" | "showMap" | "fetchData";
 
 function App() {
   const version = "0.2.0";
+
+  const datePrintFormat = "YYYY-MM-DD HH:mm:ss";
+  const timeZoneTokyo = "Asia/Tokyo";
 
   const [nowMode, setNowMode] = useState<mode>("recordMove");
 
@@ -346,7 +348,6 @@ function App() {
     }
   }, [nowGeolocation]);
 
-  const [map, _setMap] = useState<Map | undefined>();
   const defaultPosX = 35.68815;
   const defaultPoxY = 139.699892;
 
@@ -481,26 +482,6 @@ function App() {
   const [showMoveInfo, setShowMoveInfo] = useState<mapMoveInfo | null>(null);
   const [showMoveInfoClickPosX, setShowMoveInfoClickPosX] = useState(0);
   const [showMoveInfoClickPosY, setShowMoveInfoClickPosY] = useState(0);
-
-  useEffect(() => {
-    if (map) {
-      // @ts-ignore
-      const tileLayerOffline = L.tileLayer.offline(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          attribution:
-            '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
-        },
-      );
-
-      tileLayerOffline.addTo(map);
-
-      // @ts-ignore
-      const controlSaveTiles = L.control.savetiles(tileLayerOffline);
-
-      controlSaveTiles.addTo(map!);
-    }
-  }, [map]);
 
   function ChangeView() {
     if (isSetMapCenter) {
@@ -699,7 +680,12 @@ function App() {
                 if (value.moveInfo.id == nowMoveId) {
                   <>
                     {value.startDate ? (
-                      <p>移動開始：{value.startDate.toLocaleDateString()}</p>
+                      <p>
+                        移動開始：
+                        {formatToTimeZone(value.startDate, datePrintFormat, {
+                          timeZone: timeZoneTokyo,
+                        })}
+                      </p>
                     ) : null}
                     <p>
                       移動時間：
@@ -803,25 +789,31 @@ function App() {
                   ])}
                   eventHandlers={{
                     click: (event) => {
-                      if (!isRecordMove) {
-                        setShowMoveInfo(moveInfo);
-                        setShowMoveInfoClickPosX(event.latlng.lat);
-                        setShowMoveInfoClickPosY(event.latlng.lng);
-                      }
+                      info(
+                        `Polyline click, pos: (${event.latlng.lat}, ${event.latlng.lng}), moveInfo value: ${moveInfo.moveInfo.id}}`,
+                      );
+                      setShowMoveInfo(moveInfo);
+                      setShowMoveInfoClickPosX(event.latlng.lat);
+                      setShowMoveInfoClickPosY(event.latlng.lng);
                     },
                   }}
                 />
               );
             })}
-            {!isRecordMove &&
-            showMoveInfo &&
+            {showMoveInfo &&
             showMoveInfo.startDate &&
             showMoveInfo.endDate &&
             showMoveInfo.moveSeconds != 0 ? (
               <Popup position={[showMoveInfoClickPosX, showMoveInfoClickPosY]}>
                 <>
-                  {showMoveInfo.startDate}から
-                  {showMoveInfo.endDate}まで
+                  {formatToTimeZone(showMoveInfo.startDate, datePrintFormat, {
+                    timeZone: timeZoneTokyo,
+                  })}
+                  から
+                  {formatToTimeZone(showMoveInfo.startDate, datePrintFormat, {
+                    timeZone: timeZoneTokyo,
+                  })}
+                  まで
                   <br />
                 </>
                 <>
